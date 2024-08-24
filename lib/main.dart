@@ -43,13 +43,13 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: const Color.fromRGBO(15, 23, 42, 1),
@@ -66,6 +66,7 @@ class _HomeScreenState extends State<HomeScreen>
               tabs: const [
                 Tab(icon: Icon(Icons.web), text: 'SEU UMS'),
                 Tab(icon: Icon(Icons.home), text: 'ClassRoom'),
+                Tab(icon: Icon(Icons.settings), text: 'Mail'),
                 Tab(icon: Icon(Icons.settings), text: 'Map'),
                 Tab(icon: Icon(Icons.settings), text: 'Chat'),
                 Tab(icon: Icon(Icons.settings), text: 'Help'),
@@ -81,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen>
           children: const [
             UmsTab(),
             ClassroomTab(),
+            MailTab(),
             MapTab(),
             ChatTab(),
             HelpTab(),
@@ -158,6 +160,61 @@ class _ClassroomTabState extends State<ClassroomTab>
     with AutomaticKeepAliveClientMixin {
   late WebViewController _webViewController;
   String initialUrl = 'https://classroom.google.com/';
+
+  @override
+  bool get wantKeepAlive => true;
+
+  Future<void> _reloadWebView() async {
+    if (_webViewController != null) {
+      await _webViewController.reload();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(
+        context); // Call super.build to ensure the keep-alive mechanism is applied
+
+    return Stack(
+      children: [
+        WebView(
+          initialUrl: initialUrl,
+          javascriptMode: JavascriptMode.unrestricted,
+          onWebViewCreated: (WebViewController webViewController) {
+            _webViewController = webViewController;
+          },
+          onPageFinished: (String url) {
+            // Inject JavaScript to disable zooming
+            _webViewController.runJavascript(
+                "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');");
+          },
+        ),
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: FloatingActionButton(
+            onPressed: _reloadWebView,
+            child: Icon(Icons.refresh),
+            backgroundColor: const Color.fromRGBO(15, 23, 42, 1),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Mail tab here ###########################################################################
+
+class MailTab extends StatefulWidget {
+  const MailTab({Key? key}) : super(key: key);
+
+  @override
+  _MailTabState createState() => _MailTabState();
+}
+
+class _MailTabState extends State<MailTab> with AutomaticKeepAliveClientMixin {
+  late WebViewController _webViewController;
+  String initialUrl = 'https://mail.google.com/mail/u/0/#inbox';
 
   @override
   bool get wantKeepAlive => true;
