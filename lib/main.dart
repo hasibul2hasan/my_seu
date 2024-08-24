@@ -43,46 +43,64 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('WebView in TabBar'),
-        backgroundColor: const Color.fromRGBO(15, 23, 42, 1),
-        bottom: TabBar(
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: const Color.fromRGBO(15, 23, 42, 1),
+          elevation: 0,
+          // title: const Text(
+          //   'WebView in TabBar',
+          //   style: TextStyle(color: Colors.white),
+          // ),
+          bottom: PreferredSize(
+            preferredSize: Size.fromHeight(20.0), // Adjust as needed
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(),
+              tabs: const [
+                Tab(icon: Icon(Icons.web), text: 'SEU UMS'),
+                Tab(icon: Icon(Icons.home), text: 'ClassRoom'),
+                Tab(icon: Icon(Icons.settings), text: 'Map'),
+                Tab(icon: Icon(Icons.settings), text: 'Chat'),
+                Tab(icon: Icon(Icons.settings), text: 'Help'),
+              ],
+            ),
+          ),
+        ),
+        body: TabBarView(
           controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.web), text: 'WebView'),
-            Tab(icon: Icon(Icons.home), text: 'Home'),
-            Tab(icon: Icon(Icons.settings), text: 'Settings'),
+
+          physics:
+              const NeverScrollableScrollPhysics(), // Disable swipe gesture
+          children: const [
+            UmsTab(),
+            ClassroomTab(),
+            MapTab(),
+            ChatTab(),
+            HelpTab(),
           ],
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        physics: const NeverScrollableScrollPhysics(), // Disable swipe gesture
-        children: const [
-          WebViewScreen(),
-          HomeTab(),
-          SettingsTab(),
-        ],
       ),
     );
   }
 }
 
-class WebViewScreen extends StatefulWidget {
-  const WebViewScreen({Key? key}) : super(key: key);
+//UMS tab here###########################################################################
+
+class UmsTab extends StatefulWidget {
+  const UmsTab({Key? key}) : super(key: key);
 
   @override
-  _WebViewScreenState createState() => _WebViewScreenState();
+  _UmsTabState createState() => _UmsTabState();
 }
 
-class _WebViewScreenState extends State<WebViewScreen>
-    with AutomaticKeepAliveClientMixin {
+class _UmsTabState extends State<UmsTab> with AutomaticKeepAliveClientMixin {
   late WebViewController _webViewController;
   String initialUrl = 'https://ums.seu.edu.bd/';
 
@@ -128,28 +146,103 @@ class _WebViewScreenState extends State<WebViewScreen>
   }
 }
 
-class HomeTab extends StatelessWidget {
-  const HomeTab({Key? key}) : super(key: key);
+// ClassRoom tab here ###########################################################################
+class ClassroomTab extends StatefulWidget {
+  const ClassroomTab({Key? key}) : super(key: key);
+
+  @override
+  _ClassroomTabState createState() => _ClassroomTabState();
+}
+
+class _ClassroomTabState extends State<ClassroomTab>
+    with AutomaticKeepAliveClientMixin {
+  late WebViewController _webViewController;
+  String initialUrl = 'https://classroom.google.com/';
+
+  @override
+  bool get wantKeepAlive => true;
+
+  Future<void> _reloadWebView() async {
+    if (_webViewController != null) {
+      await _webViewController.reload();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'Home Tab',
-        style: TextStyle(fontSize: 24),
-      ),
+    super.build(
+        context); // Call super.build to ensure the keep-alive mechanism is applied
+
+    return Stack(
+      children: [
+        WebView(
+          initialUrl: initialUrl,
+          javascriptMode: JavascriptMode.unrestricted,
+          onWebViewCreated: (WebViewController webViewController) {
+            _webViewController = webViewController;
+          },
+          onPageFinished: (String url) {
+            // Inject JavaScript to disable zooming
+            _webViewController.runJavascript(
+                "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');");
+          },
+        ),
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: FloatingActionButton(
+            onPressed: _reloadWebView,
+            child: Icon(Icons.refresh),
+            backgroundColor: const Color.fromRGBO(15, 23, 42, 1),
+          ),
+        ),
+      ],
     );
   }
 }
 
-class SettingsTab extends StatelessWidget {
-  const SettingsTab({Key? key}) : super(key: key);
+// Map tab here ###########################################################################
+
+class MapTab extends StatelessWidget {
+  const MapTab({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Text(
         'Settings Tab',
+        style: TextStyle(fontSize: 24),
+      ),
+    );
+  }
+}
+
+// Chat tab here ###########################################################################
+
+class ChatTab extends StatelessWidget {
+  const ChatTab({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        'Chat Tab',
+        style: TextStyle(fontSize: 24),
+      ),
+    );
+  }
+}
+
+// Help tab here ###########################################################################
+
+class HelpTab extends StatelessWidget {
+  const HelpTab({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        'Help Tab',
         style: TextStyle(fontSize: 24),
       ),
     );
