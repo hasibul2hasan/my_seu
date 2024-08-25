@@ -93,15 +93,10 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
               tabs: [
-                //Tab(icon: Icon(Icons.web), text: 'SEU UMS'),
+                Tab(icon: Image.asset("assets/TabBarLogo/ums.png")),
                 Tab(
-                  icon: Image.asset("assets/TabBarLogo/ums.png"),
-                  //text: 'ClassRoom'
-                ),
-                Tab(
-                  icon: Image.asset("assets/TabBarLogo/google_classroom.png"),
-                  // text: 'ClassRoom',
-                ),
+                    icon:
+                        Image.asset("assets/TabBarLogo/google_classroom.png")),
                 Tab(icon: Icon(Icons.mail), text: 'Note'),
                 Tab(icon: Icon(Icons.map), text: 'Map'),
                 Tab(icon: Icon(Icons.chat), text: 'Chat'),
