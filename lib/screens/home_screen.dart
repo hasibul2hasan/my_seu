@@ -109,8 +109,8 @@ class _HomeScreenState extends State<HomeScreen>
               tabs: [
                 Tab(
                   icon: SizedBox(
-                    width: 40.0, // Set the width you want
-                    height: 40.0, // Set the height you want
+                    width: 35.0, // Set the width you want
+                    height: 35.0, // Set the height you want
                     child: Image.asset(
                       _tabController.index == 0
                           ? "assets/TabBarLogo/SeuTabBarLogoInver.png"
@@ -122,13 +122,17 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                 ),
                 Tab(
-                  icon: Image.asset(
-                    _tabController.index == 1
-                        ? "assets/TabBarLogo/google_classroom_black.png"
-                        : "assets/TabBarLogo/google_classroom_white.png",
-                    color: _tabController.index == 1
-                        ? const Color.fromRGBO(32, 164, 100, 100)
-                        : const Color.fromARGB(255, 0, 0, 0),
+                  icon: SizedBox(
+                    width: 35.0, // Set the width you want
+                    height: 35.0, // Set the height you want
+                    child: Image.asset(
+                      _tabController.index == 1
+                          ? "assets/TabBarLogo/google_classroom_white.png"
+                          : "assets/TabBarLogo/google_classroom_black.png",
+                      color: _tabController.index == 1
+                          ? const Color.fromARGB(255, 0, 157, 42)
+                          : Colors.black,
+                    ),
                   ),
                 ),
                 Tab(
@@ -139,21 +143,30 @@ class _HomeScreenState extends State<HomeScreen>
                     color: _tabController.index == 2
                         ? const Color.fromARGB(255, 129, 129, 129)
                         : const Color.fromARGB(255, 0, 0, 0),
-                    size: 40,
+                    size: 35,
                   ),
                 ),
                 Tab(
-                  icon: Image.asset(
+                  icon: Icon(
                     _tabController.index == 3
-                        ? "assets/TabBarLogo/map_selected.png"
-                        : "assets/TabBarLogo/map.png",
+                        ? Icons.location_on
+                        : Icons
+                            .location_on_outlined, // Same icon for selected and unselected
+                    color: _tabController.index == 3
+                        ? const Color.fromARGB(255, 0, 0, 0)
+                        : const Color.fromARGB(255, 0, 0, 0),
+                    size: 35,
                   ),
                 ),
                 Tab(
-                  icon: Image.asset(
+                  icon: Icon(
                     _tabController.index == 4
-                        ? "assets/TabBarLogo/chat_selected.png"
-                        : "assets/TabBarLogo/chat.png",
+                        ? Icons.menu_sharp
+                        : Icons.menu, // Same icon for selected and unselected
+                    color: _tabController.index == 4
+                        ? Colors.grey
+                        : const Color.fromARGB(255, 0, 0, 0),
+                    size: 35,
                   ),
                 ),
                 // Tab(

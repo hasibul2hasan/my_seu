@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 class ChatTab extends StatefulWidget {
   const ChatTab({Key? key}) : super(key: key);
@@ -9,45 +8,39 @@ class ChatTab extends StatefulWidget {
 }
 
 class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
-  late WebViewController _webViewController;
-  String initialUrl = 'https://chat.google.com/';
-
   @override
   bool get wantKeepAlive => true;
-
-  Future<void> _reloadWebView() async {
-    if (_webViewController != null) {
-      await _webViewController.reload();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    return Stack(
-      children: [
-        WebView(
-          initialUrl: initialUrl,
-          javascriptMode: JavascriptMode.unrestricted,
-          onWebViewCreated: (WebViewController webViewController) {
-            _webViewController = webViewController;
-          },
-          onPageFinished: (String url) {
-            _webViewController.runJavascript(
-                "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');");
-          },
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Coming Soon',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            SizedBox(height: 20),
+            Text(
+              'We are working hard to bring this feature to you. Stay tuned!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
         ),
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: FloatingActionButton(
-            onPressed: _reloadWebView,
-            child: const Icon(Icons.refresh, color: Colors.white),
-            backgroundColor: const Color.fromARGB(255, 255, 87, 34),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

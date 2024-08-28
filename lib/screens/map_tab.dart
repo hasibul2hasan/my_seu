@@ -10,7 +10,8 @@ class MapTab extends StatefulWidget {
 
 class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
   late WebViewController _webViewController;
-  String initialUrl = 'https://maps.google.com/';
+  String initialUrl =
+      'https://www.google.com/maps/place/Southeast+University,+251%2FA+Tejgaon+I%2FA,+Dhaka+1208/@23.7691563,90.4050302,17z/data=!4m6!3m5!1s0x3755c70e4508a1f7:0x4e6fd719b838721!8m2!3d23.7693568!4d90.4048154!16s%2Fm%2F027nclr';
 
   @override
   bool get wantKeepAlive => true;
