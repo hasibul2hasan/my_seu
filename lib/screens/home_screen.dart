@@ -100,83 +100,86 @@ class _HomeScreenState extends State<HomeScreen>
           bottomNavigationBar: Material(
             elevation: 0,
             color: _appBarColor,
-            child: TabBar(
-              controller: _tabController,
+            child: Container(
+              height: 60,
+              child: TabBar(
+                controller: _tabController,
 
-              // Set the indicator to null to remove it
-              indicator: null,
+                // Set the indicator to null to remove it
+                indicator: null,
 
-              tabs: [
-                Tab(
-                  icon: SizedBox(
-                    width: 35.0, // Set the width you want
-                    height: 35.0, // Set the height you want
-                    child: Image.asset(
-                      _tabController.index == 0
-                          ? "assets/TabBarLogo/SeuTabBarLogoInver.png"
-                          : "assets/TabBarLogo/SeuTabBarLogoInver.png",
-                      color: _tabController.index == 0
-                          ? Colors.grey
-                          : Colors.black,
+                tabs: [
+                  Tab(
+                    icon: SizedBox(
+                      width: 35.0, // Set the width you want
+                      height: 35.0, // Set the height you want
+                      child: Image.asset(
+                        _tabController.index == 0
+                            ? "assets/TabBarLogo/SeuTabBarLogoInver.png"
+                            : "assets/TabBarLogo/SeuTabBarLogoInver.png",
+                        color: _tabController.index == 0
+                            ? Colors.black
+                            : Colors.grey,
+                      ),
                     ),
                   ),
-                ),
-                Tab(
-                  icon: SizedBox(
-                    width: 35.0, // Set the width you want
-                    height: 35.0, // Set the height you want
-                    child: Image.asset(
-                      _tabController.index == 1
-                          ? "assets/TabBarLogo/google_classroom_white.png"
-                          : "assets/TabBarLogo/google_classroom_black.png",
-                      color: _tabController.index == 1
-                          ? const Color.fromARGB(255, 0, 157, 42)
-                          : Colors.black,
+                  Tab(
+                    icon: SizedBox(
+                      width: 35.0, // Set the width you want
+                      height: 35.0, // Set the height you want
+                      child: Image.asset(
+                        _tabController.index == 1
+                            ? "assets/TabBarLogo/google_classroom_white.png"
+                            : "assets/TabBarLogo/google_classroom_black.png",
+                        color: _tabController.index == 1
+                            ? Colors.black
+                            : Colors.grey,
+                      ),
                     ),
                   ),
-                ),
-                Tab(
-                  icon: Icon(
-                    _tabController.index == 2
-                        ? Icons.add
-                        : Icons.add, // Same icon for selected and unselected
-                    color: _tabController.index == 2
-                        ? const Color.fromARGB(255, 129, 129, 129)
-                        : const Color.fromARGB(255, 0, 0, 0),
-                    size: 35,
+                  Tab(
+                    icon: Icon(
+                      _tabController.index == 2
+                          ? Icons.add
+                          : Icons.add, // Same icon for selected and unselected
+                      color: _tabController.index == 2
+                          ? Colors.black
+                          : Colors.grey,
+                      size: 35,
+                    ),
                   ),
-                ),
-                Tab(
-                  icon: Icon(
-                    _tabController.index == 3
-                        ? Icons.location_on
-                        : Icons
-                            .location_on_outlined, // Same icon for selected and unselected
-                    color: _tabController.index == 3
-                        ? const Color.fromARGB(255, 0, 0, 0)
-                        : const Color.fromARGB(255, 0, 0, 0),
-                    size: 35,
+                  Tab(
+                    icon: Icon(
+                      _tabController.index == 3
+                          ? Icons.location_on
+                          : Icons
+                              .location_on_outlined, // Same icon for selected and unselected
+                      color: _tabController.index == 3
+                          ? Colors.black
+                          : Colors.grey,
+                      size: 35,
+                    ),
                   ),
-                ),
-                Tab(
-                  icon: Icon(
-                    _tabController.index == 4
-                        ? Icons.menu_sharp
-                        : Icons.menu, // Same icon for selected and unselected
-                    color: _tabController.index == 4
-                        ? Colors.grey
-                        : const Color.fromARGB(255, 0, 0, 0),
-                    size: 35,
+                  Tab(
+                    icon: Icon(
+                      _tabController.index == 4
+                          ? Icons.menu_sharp
+                          : Icons.menu, // Same icon for selected and unselected
+                      color: _tabController.index == 4
+                          ? Colors.black
+                          : Colors.grey,
+                      size: 35,
+                    ),
                   ),
-                ),
-                // Tab(
-                //   icon: Image.asset(
-                //     _tabController.index == 5
-                //         ? "assets/TabBarLogo/help_selected.png"
-                //         : "assets/TabBarLogo/help.png",
-                //   ),
-                // ),
-              ],
+                  // Tab(
+                  //   icon: Image.asset(
+                  //     _tabController.index == 5
+                  //         ? "assets/TabBarLogo/help_selected.png"
+                  //         : "assets/TabBarLogo/help.png",
+                  //   ),
+                  // ),
+                ],
+              ),
             ),
           ),
         ),
