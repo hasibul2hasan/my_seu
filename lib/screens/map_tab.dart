@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:permission_handler/permission_handler.dart'; // For Android runtime permissions
+import 'package:geolocator/geolocator.dart'; // For iOS location permissions
+import 'dart:io' show Platform;
 
 class MapTab extends StatefulWidget {
   const MapTab({Key? key}) : super(key: key);
@@ -9,16 +12,67 @@ class MapTab extends StatefulWidget {
 }
 
 class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
-  late WebViewController _webViewController;
+  WebViewController? _webViewController;
   String initialUrl =
-      'https://www.google.com/maps/place/Southeast+University,+251%2FA+Tejgaon+I%2FA,+Dhaka+1208/@23.7691563,90.4050302,17z/data=!4m6!3m5!1s0x3755c70e4508a1f7:0x4e6fd719b838721!8m2!3d23.7693568!4d90.4048154!16s%2Fm%2F027nclr';
+      'https://www.google.com/maps/place/Southeast+University,+251%2FA+Tejgaon+I%2FA,+Dhaka+1208';
 
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void initState() {
+    super.initState();
+    _requestLocationPermission();
+  }
+
+  Future<void> _requestLocationPermission() async {
+    if (Platform.isAndroid) {
+      final status = await Permission.location.request();
+      if (status.isDenied) {
+        print("Location permission denied on Android");
+      } else if (status.isPermanentlyDenied) {
+        openAppSettings();
+      } else if (status.isGranted) {
+        _getCurrentLocation();
+      }
+    } else if (Platform.isIOS) {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        _getCurrentLocation();
+      } else {
+        print("Location permission denied on iOS");
+      }
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      String currentLocationUrl =
+          'https://www.google.com/maps/dir/?api=1&origin=${position.latitude},${position.longitude}&destination=23.7693568,90.4048154'; // Example destination coordinates
+      if (_webViewController != null) {
+        await _webViewController!.loadUrl(currentLocationUrl);
+      } else {
+        setState(() {
+          initialUrl = currentLocationUrl;
+        });
+      }
+    } catch (e) {
+      print("Error getting current location: $e");
+    }
+  }
+
   Future<void> _reloadWebView() async {
     if (_webViewController != null) {
-      await _webViewController.reload();
+      await _webViewController!.reload();
+    } else {
+      print("WebViewController is not initialized");
     }
   }
 
@@ -33,10 +87,16 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
           javascriptMode: JavascriptMode.unrestricted,
           onWebViewCreated: (WebViewController webViewController) {
             _webViewController = webViewController;
+            if (initialUrl.isNotEmpty && _webViewController != null) {
+              _webViewController!.loadUrl(initialUrl);
+            }
           },
           onPageFinished: (String url) {
-            _webViewController.runJavascript(
+            _webViewController?.runJavascript(
                 "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');");
+          },
+          onWebResourceError: (error) {
+            print("WebView resource error: ${error.description}");
           },
         ),
         Positioned(
