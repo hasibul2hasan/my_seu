@@ -44,7 +44,7 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
         child: SignInButton(
           Buttons.google,
           text: "Sign up with google",
-          onPressed: () {},
+          onPressed: _handleGoogleSignIn,
         ),
       ),
     );
@@ -52,5 +52,14 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 
   Widget _userInfo() {
     return SizedBox();
+  }
+
+  void _handleGoogleSignIn() {
+    try {
+      GoogleAuthProvider _googleAuthProvider = GoogleAuthProvider();
+      _auth.signInWithProvider(_googleAuthProvider);
+    } catch (error) {
+      print(error);
+    }
   }
 }
