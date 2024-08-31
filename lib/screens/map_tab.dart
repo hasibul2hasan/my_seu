@@ -15,6 +15,8 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
   WebViewController? _webViewController;
   String initialUrl =
       'https://www.google.com/maps/place/Southeast+University,+251%2FA+Tejgaon+I%2FA,+Dhaka+1208';
+  bool isLoading = true; // For the loading indicator
+  bool hasError = false; // For displaying an error message
 
   @override
   bool get wantKeepAlive => true;
@@ -70,6 +72,10 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
 
   Future<void> _reloadWebView() async {
     if (_webViewController != null) {
+      setState(() {
+        isLoading = true; // Show loading indicator when reloading
+        hasError = false; // Reset error state
+      });
       await _webViewController!.reload();
     } else {
       print("WebViewController is not initialized");
@@ -91,14 +97,50 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
               _webViewController!.loadUrl(initialUrl);
             }
           },
+          onPageStarted: (String url) {
+            setState(() {
+              isLoading = true; // Start loading indicator
+              hasError = false; // Reset error state
+            });
+          },
           onPageFinished: (String url) {
+            setState(() {
+              isLoading = false; // Stop loading indicator
+            });
             _webViewController?.runJavascript(
                 "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');");
           },
           onWebResourceError: (error) {
+            setState(() {
+              isLoading = false; // Stop loading indicator
+              hasError = true; // Set error state
+            });
             print("WebView resource error: ${error.description}");
           },
         ),
+        if (isLoading)
+          const Center(
+            child: CircularProgressIndicator(), // Loading indicator
+          ),
+        if (hasError)
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error, color: Colors.red, size: 64),
+                const SizedBox(height: 16),
+                const Text(
+                  "Failed to load map.",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: _reloadWebView,
+                  child: const Text("Retry"),
+                ),
+              ],
+            ),
+          ),
         Positioned(
           bottom: 16,
           right: 16,
