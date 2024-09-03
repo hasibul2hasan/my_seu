@@ -16,38 +16,47 @@ class _KeepTabState extends State<KeepTab> with AutomaticKeepAliveClientMixin {
   bool get wantKeepAlive => true;
 
   Future<void> _reloadWebView() async {
-    if (_webViewController != null) {
-      await _webViewController.reload();
+    await _webViewController.reload();
+  }
+
+  Future<bool> _onWillPop() async {
+    if (await _webViewController.canGoBack()) {
+      _webViewController.goBack();
+      return false; // Prevent the app from closing.
     }
+    return true; // Allow the app to close if there's no back history.
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    return Stack(
-      children: [
-        WebView(
-          initialUrl: initialUrl,
-          javascriptMode: JavascriptMode.unrestricted,
-          onWebViewCreated: (WebViewController webViewController) {
-            _webViewController = webViewController;
-          },
-          onPageFinished: (String url) {
-            _webViewController.runJavascript(
-                "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');");
-          },
-        ),
-        Positioned(
-          bottom: 16,
-          right: 16,
-          child: FloatingActionButton(
-            onPressed: _reloadWebView,
-            child: const Icon(Icons.refresh, color: Colors.white),
-            backgroundColor: const Color.fromARGB(255, 255, 193, 7),
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Stack(
+        children: [
+          WebView(
+            initialUrl: initialUrl,
+            javascriptMode: JavascriptMode.unrestricted,
+            onWebViewCreated: (WebViewController webViewController) {
+              _webViewController = webViewController;
+            },
+            onPageFinished: (String url) {
+              _webViewController.runJavascript(
+                  "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');");
+            },
           ),
-        ),
-      ],
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: FloatingActionButton(
+              onPressed: _reloadWebView,
+              child: const Icon(Icons.refresh, color: Colors.white),
+              backgroundColor: const Color.fromARGB(255, 255, 193, 7),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

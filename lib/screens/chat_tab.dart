@@ -30,9 +30,10 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Google sign in"),
-      ),
+      backgroundColor: Colors.white,
+      // appBar: AppBar(
+      //   title: const Text("Google sign in"),
+      // ),
       body: _user != null ? _userInfo() : _googleSignInButton(),
     );
   }
