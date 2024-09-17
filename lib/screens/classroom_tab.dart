@@ -14,6 +14,8 @@ class _ClassroomTabState extends State<ClassroomTab>
   String initialUrl =
       'https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fclassroom.google.com&passive=true';
 
+  bool _isLoading = true; // Tracks the loading state
+
   @override
   bool get wantKeepAlive => true;
 
@@ -43,11 +45,26 @@ class _ClassroomTabState extends State<ClassroomTab>
             onWebViewCreated: (WebViewController webViewController) {
               _webViewController = webViewController;
             },
+            onPageStarted: (String url) {
+              setState(() {
+                _isLoading =
+                    true; // Show loading indicator when page starts loading
+              });
+            },
             onPageFinished: (String url) {
+              setState(() {
+                _isLoading =
+                    false; // Hide loading indicator when page finishes loading
+              });
               _webViewController.runJavascript(
                   "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');");
             },
           ),
+          // Show the loading indicator if the page is still loading
+          if (_isLoading)
+            const Center(
+              child: CircularProgressIndicator(),
+            ),
           Positioned(
             bottom: 16,
             right: 16,
