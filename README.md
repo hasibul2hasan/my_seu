@@ -1,5 +1,6 @@
-# My SEU
+<p><a target="_blank" href="https://app.eraser.io/workspace/V1asYjJiF0ezvIQIQ2OI" id="edit-in-eraser-github-link"><img alt="Edit in Eraser" src="https://firebasestorage.googleapis.com/v0/b/second-petal-295822.appspot.com/o/images%2Fgithub%2FOpen%20in%20Eraser.svg?alt=media&amp;token=968381c8-a7e7-472a-8ed6-4a6626da5501"></a></p>
 
+# My SEU
 Our all-in-one hub for managing your educational and communication needs seamlessly. This app is designed to integrate multiple functionalities into one intuitive platform, providing a streamlined experience for students and professionals alike.
 
 Key Features:
@@ -18,5 +19,8 @@ Customizable Navigation: Our user-friendly bottom navigation bar allows you to s
 
 Dynamic UI: Enjoy a vibrant and adaptable interface with a color scheme that changes based on the selected tab, ensuring a visually engaging experience.
 
-
 Experience a new level of efficiency and connectivity with My SEU. Download now and streamline your academic and communication tasks with ease!
+
+
+
+<!--- Eraser file: https://app.eraser.io/workspace/V1asYjJiF0ezvIQIQ2OI --->
