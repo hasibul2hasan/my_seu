@@ -54,7 +54,7 @@ class DefaultFirebaseOptions {
     appId: '1:1008929485587:android:f95b02810166c0e92420e6',
     messagingSenderId: '1008929485587',
     projectId: 'my-seu',
-    storageBucket: 'my-seu.appspot.com',
+    storageBucket: 'my-seu.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -62,7 +62,7 @@ class DefaultFirebaseOptions {
     appId: '1:1008929485587:ios:9fcfefa3905cfc7b2420e6',
     messagingSenderId: '1008929485587',
     projectId: 'my-seu',
-    storageBucket: 'my-seu.appspot.com',
+    storageBucket: 'my-seu.firebasestorage.app',
     androidClientId: '1008929485587-cqr81jn59i2ia9o2p4ing0jf6jeevkoh.apps.googleusercontent.com',
     iosClientId: '1008929485587-p89d68e4rqtk0v224hf3b5j5vj8vckl3.apps.googleusercontent.com',
     iosBundleId: 'com.example.ums',

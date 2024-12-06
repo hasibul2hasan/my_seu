@@ -19,7 +19,7 @@
 	<key>PROJECT_ID</key>
 	<string>my-seu</string>
 	<key>STORAGE_BUCKET</key>
-	<string>my-seu.appspot.com</string>
+	<string>my-seu.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
