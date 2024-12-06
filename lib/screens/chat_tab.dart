@@ -58,6 +58,7 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
   //       // Navigate to another screen, like a chat screen
   //       Navigator.pushReplacementNamed(context, '/chat_screen');
   //     }
+  //hy
   //   } catch (e) {
   //     // Show an error message
   //     ScaffoldMessenger.of(context).showSnackBar(
