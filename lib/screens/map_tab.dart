@@ -24,7 +24,39 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
+    _initializeWebView();
     _requestLocationPermission();
+  }
+
+  void _initializeWebView() {
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (String url) {
+            setState(() {
+              isLoading = true;
+              hasError = false;
+            });
+          },
+          onPageFinished: (String url) {
+            setState(() {
+              isLoading = false;
+            });
+            _webViewController?.runJavaScript(
+              "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');",
+            );
+          },
+          onWebResourceError: (error) {
+            setState(() {
+              isLoading = false;
+              hasError = true;
+            });
+            print("WebView resource error: ${error.description}");
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(initialUrl));
   }
 
   Future<void> _requestLocationPermission() async {
@@ -58,8 +90,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
       );
       String currentLocationUrl =
           'https://www.google.com/maps/dir/?api=1&origin=${position.latitude},${position.longitude}&destination=23.7693568,90.4048154'; // Example destination coordinates
-      _webViewController
-          ?.loadUrl(currentLocationUrl); // Use ?. to safely call loadUrl
+      _webViewController?.loadRequest(Uri.parse(currentLocationUrl));
     } catch (e) {
       print("Error getting current location: $e");
     }
@@ -93,37 +124,8 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
       onWillPop: _onWillPop, // Ensure onWillPop is correctly set here
       child: Stack(
         children: [
-          WebView(
-            initialUrl: initialUrl,
-            javascriptMode: JavascriptMode.unrestricted,
-            onWebViewCreated: (WebViewController webViewController) {
-              _webViewController = webViewController;
-              if (initialUrl.isNotEmpty) {
-                _webViewController
-                    ?.loadUrl(initialUrl); // Use ?. to safely call loadUrl
-              }
-            },
-            onPageStarted: (String url) {
-              setState(() {
-                isLoading = true; // Start loading indicator
-                hasError = false; // Reset error state
-              });
-            },
-            onPageFinished: (String url) {
-              setState(() {
-                isLoading = false; // Stop loading indicator
-              });
-              _webViewController?.runJavascript(
-                  "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');");
-            },
-            onWebResourceError: (error) {
-              setState(() {
-                isLoading = false; // Stop loading indicator
-                hasError = true; // Set error state
-              });
-              print("WebView resource error: ${error.description}");
-            },
-          ),
+          if (_webViewController != null)
+            WebViewWidget(controller: _webViewController!),
           if (isLoading)
             const Center(
               child: CircularProgressIndicator(), // Loading indicator

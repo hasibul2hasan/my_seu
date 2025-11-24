@@ -19,6 +19,31 @@ class _ClassroomTabState extends State<ClassroomTab>
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void initState() {
+    super.initState();
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (String url) {
+            setState(() {
+              _isLoading = true; // Show loading indicator when page starts loading
+            });
+          },
+          onPageFinished: (String url) {
+            setState(() {
+              _isLoading = false; // Hide loading indicator when page finishes loading
+            });
+            _webViewController.runJavaScript(
+              "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');",
+            );
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(initialUrl));
+  }
+
   Future<void> _reloadWebView() async {
     await _webViewController.reload();
   }
@@ -39,27 +64,7 @@ class _ClassroomTabState extends State<ClassroomTab>
       onWillPop: _onWillPop,
       child: Stack(
         children: [
-          WebView(
-            initialUrl: initialUrl,
-            javascriptMode: JavascriptMode.unrestricted,
-            onWebViewCreated: (WebViewController webViewController) {
-              _webViewController = webViewController;
-            },
-            onPageStarted: (String url) {
-              setState(() {
-                _isLoading =
-                    true; // Show loading indicator when page starts loading
-              });
-            },
-            onPageFinished: (String url) {
-              setState(() {
-                _isLoading =
-                    false; // Hide loading indicator when page finishes loading
-              });
-              _webViewController.runJavascript(
-                  "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');");
-            },
-          ),
+          WebViewWidget(controller: _webViewController),
           // Show the loading indicator if the page is still loading
           if (_isLoading)
             const Center(

@@ -15,6 +15,23 @@ class _UmsTabState extends State<UmsTab> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
+  @override
+  void initState() {
+    super.initState();
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (String url) {
+            _webViewController.runJavaScript(
+              "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');",
+            );
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(initialUrl));
+  }
+
   Future<void> _reloadWebView() async {
     await _webViewController.reload();
   }
@@ -35,17 +52,7 @@ class _UmsTabState extends State<UmsTab> with AutomaticKeepAliveClientMixin {
       onWillPop: _onWillPop,
       child: Stack(
         children: [
-          WebView(
-            initialUrl: initialUrl,
-            javascriptMode: JavascriptMode.unrestricted,
-            onWebViewCreated: (WebViewController webViewController) {
-              _webViewController = webViewController;
-            },
-            onPageFinished: (String url) {
-              _webViewController.runJavascript(
-                  "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');");
-            },
-          ),
+          WebViewWidget(controller: _webViewController),
           Positioned(
             bottom: 16,
             right: 16,
