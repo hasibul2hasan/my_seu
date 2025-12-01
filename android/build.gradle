@@ -15,6 +15,12 @@ allprojects {
         google()
         mavenCentral()
     }
+
+    // Force compatible AndroidX artifact versions to avoid AGP version requirement
+    // issues coming from newer transitive dependencies (e.g. google_mlkit packages).
+    configurations.all {
+        resolutionStrategy.force 'androidx.activity:activity:1.6.1'
+    }
 }
 
 rootProject.buildDir = "../build"
