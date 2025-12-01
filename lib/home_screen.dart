@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
-import 'ums_tab.dart';
-import 'classroom_tab.dart';
-import 'keep_tab.dart';
-import 'map_tab.dart';
-import 'chat_tab.dart';
+import 'screens/ums_tab.dart';
+import 'screens/classroom_tab.dart';
+import 'screens/keep_tab.dart';
+import 'screens/map_tab.dart';
+import 'screens/services_tab.dart';
 // import 'help_tab.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -32,10 +32,10 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() {
       switch (_selectedIndex) {
         case 0:
-          _appBarColor = const Color.fromRGBO(15, 23, 42, 1); // UMS
+          _appBarColor = const Color.fromARGB(255, 255, 255, 255); // Chat
           SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
             statusBarColor: _appBarColor,
-            statusBarIconBrightness: Brightness.light, // White icons
+            statusBarIconBrightness: Brightness.dark, // Dark icons
           ));
           break;
         case 1:
@@ -46,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen>
           ));
           break;
         case 2:
-          _appBarColor = const Color.fromARGB(255, 255, 255, 255); // Mail
+          _appBarColor = const Color.fromARGB(255, 255, 255, 255); // Add
           SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
             statusBarColor: _appBarColor,
             statusBarIconBrightness: Brightness.dark, // Dark icons
@@ -60,10 +60,10 @@ class _HomeScreenState extends State<HomeScreen>
           ));
           break;
         case 4:
-          _appBarColor = const Color.fromARGB(255, 255, 255, 255); // Chat
+          _appBarColor = const Color.fromRGBO(15, 23, 42, 1); // UMS
           SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
             statusBarColor: _appBarColor,
-            statusBarIconBrightness: Brightness.dark, // Dark icons
+            statusBarIconBrightness: Brightness.light, // White icons
           ));
           break;
       }
@@ -86,12 +86,11 @@ class _HomeScreenState extends State<HomeScreen>
           controller: _pageController,
           physics: const NeverScrollableScrollPhysics(),
           children: const [
-            UmsTab(),
+            ServicesTab(),
             ClassroomTab(),
             KeepTab(),
             MapTab(),
-            ChatTab(),
-            // HelpTab(),
+            UmsTab(),
           ],
         ),
       ),
@@ -105,21 +104,14 @@ class _HomeScreenState extends State<HomeScreen>
           activeColor: Colors.black,
           tabBackgroundColor: Colors.grey[100]!,
           padding: const EdgeInsets.all(16),
+          
           onTabChange: _onItemTapped,
           selectedIndex: _selectedIndex,
-          tabs: [
-            GButton(
-              icon: Icons.school, // This will be replaced by the image
-              text: 'UMS',
-              leading: Image.asset(
-                'assets/TabBarLogo/seuinver.png', // Path to your image
-                width: 24, // Width of the image
-                height: 24, // Height of the image
-                color: _selectedIndex == 0
-                    ? Colors.black
-                    : Colors.grey, // Optional: to tint the image
-              ),
+          tabs: [const GButton(
+              icon: Icons.menu,
+              text: 'Services',
             ),
+            
             GButton(
               icon: Icons.school, // This will be replaced by the image
               text: 'Classroom',
@@ -139,11 +131,19 @@ class _HomeScreenState extends State<HomeScreen>
             const GButton(
               icon: Icons.location_on,
               text: 'Map',
+            ),GButton(
+              icon: Icons.school, // This will be replaced by the image
+              text: 'UMS',
+              leading: Image.asset(
+                'assets/TabBarLogo/seuinver.png', // Path to your image
+                width: 24, // Width of the image
+                height: 24, // Height of the image
+                color: _selectedIndex == 0
+                    ? Colors.black
+                    : Colors.grey, // Optional: to tint the image
+              ),
             ),
-            const GButton(
-              icon: Icons.chat,
-              text: 'Chat',
-            ),
+            
           ],
         ),
       ),
