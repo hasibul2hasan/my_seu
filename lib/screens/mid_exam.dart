@@ -75,8 +75,10 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     try {
       // More robust pattern: allow optional spaces and separators between parts
       // Examples matched: CSE343.6, CSE 343.6, CSE343-6, CSE 343 6
+      // Allow sections with optional spaces between digits (OCR often inserts spaces)
+      // Examples: CSE343.6, CSE343.11, CSE 343 . 1 1, CSE343-11
       final codeRegex = RegExp(
-        r'([A-Za-z]{3,4})\s*(\d{3})(?:[\.\-_/\s]*(\d{1,2}))?',
+        r'([A-Za-z]{3,4})\s*(\d{3})(?:[\.|\-|_|/|\s]*([\d\s]{1,3}))?',
         caseSensitive: false,
       );
       final matches = codeRegex.allMatches(extractedText).toList();
@@ -100,6 +102,8 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
         final base = '$dept$num'; // e.g. CSE263
         String? section = m.group(3);
         if (section != null) {
+          // Remove any spaces OCR may have inserted between digits, then normalize zeros
+          section = section.replaceAll(RegExp(r'\s+'), '');
           section = section.replaceFirst(RegExp(r'^0+'), ''); // strip leading zeros
           if (section.isEmpty) section = '0';
         }
@@ -247,7 +251,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                     return Card(
                       child: ListTile(
                         title:
-                            Text("${item['course']} (Sec ${item['section']})"),
+                            Text("${item['course']}.${item['section']}"),
                         subtitle: Text(
                           "Date: ${item['date']}\n"
                           "Time: ${item['time']}\n"
