@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
+import './my_inventory_page.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -21,6 +23,8 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
   List<Map<String, dynamic>> myInventory = [];
   bool showInventoryHints = true;
   Map<String, dynamic>? _scheduleCache;
+  bool hasSearched = false;
+  Timer? _searchDebounce;
 
   Future<void> pickImage() async {
     try {
@@ -215,8 +219,11 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     // Preload cache so first search is fast
     loadExamJson().then((map) {
       _scheduleCache = map;
+      // Show all courses on entering the page
+      manualSearch();
     }).catchError((error) {
-      // ignore preload errors
+      // If preload fails, still try to show all courses
+      manualSearch();
     });
   }
   Future<void> manualSearch() async {
@@ -224,12 +231,13 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
       isProcessing = true;
       errorMessage = null;
       finalResults.clear();
+      hasSearched = true;
     });
 
     try {
       final rawCourse = _courseController.text.trim();
-
-      final schedule = await loadExamJson();
+      final schedule = _scheduleCache ?? await loadExamJson();
+      _scheduleCache ??= schedule;
       final results = <Map<String, dynamic>>[];
 
       if (rawCourse.isEmpty) {
@@ -421,29 +429,49 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                 labelText: 'Course or Course.Section (e.g., CSE263 or CSE263.11)',
                 suffixIcon: (_courseController.text.isNotEmpty)
                     ? IconButton(
+                        icon: const Icon(Icons.close),
                         tooltip: 'Clear',
-                        icon: const Icon(Icons.clear),
                         onPressed: () {
-                          setState(() {
-                            _courseController.clear();
-                          });
+                          _courseController.clear();
+                          // Immediately reset the search results when clearing
+                          manualSearch();
                         },
                       )
                     : null,
               ),
               textInputAction: TextInputAction.search,
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) {
+                setState(() {});
+                _searchDebounce?.cancel();
+                _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                  manualSearch();
+                });
+              },
               onSubmitted: (_) => manualSearch(),
             ),
-            // Inventory-only suggestions under search bar
-            if (showInventoryHints && myInventory.isNotEmpty) ...[
+            // My Courses button will be shown inline with inventory chips below
+            // My Courses button always visible; chips show before search
+            ...[
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: myInventory.map((inv) {
+                  children: [
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.list),
+                      label: const Text('My Courses'),
+                      onPressed: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const MyInventoryPage()),
+                        );
+                        // Refresh local inventory after returning
+                        _loadInventory();
+                        setState(() {});
+                      },
+                    ),
+                    if (myInventory.isNotEmpty) ...myInventory.map((inv) {
                     final code = "${inv['course']}.${inv['section']}";
                     return InputChip(
                       label: Text(code),
@@ -455,7 +483,8 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                       },
                       onDeleted: () => _removeFromInventory(inv['course'].toString(), inv['section'].toString()),
                     );
-                  }).toList(),
+                    }).toList(),
+                  ],
                 ),
               ),
             ],
@@ -487,8 +516,10 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
               )
             ],
 
-            /// Display Results
-            if (!isProcessing && finalResults.isNotEmpty)
+            // Inventory detailed list removed per request; only show chips under search and in My Courses page
+
+            /// Display All Courses / Search Results
+            if (!isProcessing)
               Expanded(
                 child: ListView.builder(
                   itemCount: finalResults.length,
@@ -498,8 +529,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                     final inInv = myInventory.any((e) => "${e['course']}.${e['section']}" == code);
                     return Card(
                       child: ListTile(
-                        title:
-                            Text(code),
+                        title: Text(code),
                         subtitle: Text(
                           "Date: ${item['date']}\n"
                           "Course Title: ${item['courseTitle'] ?? ''}\n"
@@ -512,8 +542,9 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                                 tooltip: 'Remove from My Courses',
                                 icon: const Icon(Icons.delete_outline),
                                 onPressed: () => _removeFromInventory(
-                                    item['course'].toString(),
-                                    item['section'].toString()),
+                                  item['course'].toString(),
+                                  item['section'].toString(),
+                                ),
                               )
                             : IconButton(
                                 tooltip: 'Add to My Courses',
@@ -524,42 +555,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                     );
                   },
                 ),
-              )
-            else if (!isProcessing && finalResults.isEmpty)
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('My Courses'),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: ListView.builder(
-                        itemCount: myInventory.length,
-                        itemBuilder: (context, index) {
-                          final inv = myInventory[index];
-                          return Card(
-                            child: ListTile(
-                              title: Text("${inv['course']}.${inv['section']}"),
-                              subtitle: Text(
-                                "Date: ${inv['date']}\n"
-                                "Course Title: ${inv['courseTitle'] ?? ''}\n"
-                                "Faculty: ${inv['faculty'] ?? ''}\n"
-                                "Time (24h): ${inv['time24'] ?? ''}\n"
-                                "Time (12h): ${inv['time12'] ?? ''}",
-                              ),
-                              trailing: IconButton(
-                                tooltip: 'Remove',
-                                icon: const Icon(Icons.delete_outline),
-                                onPressed: () => _removeFromInventory(inv['course'].toString(), inv['section'].toString()),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              )
+              ),
           ],
         ),
       ),
