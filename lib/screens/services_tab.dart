@@ -31,6 +31,15 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
           children: [
             const SizedBox(height: 8),
             const Text(
+              'Fall 2025',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
               'Select a Service',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -51,13 +60,19 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   icon: Icons.calendar_month,
                   label: 'MidTerm \nExam Schedule',
                   color: Colors.blue,
-                  onTap: () => _navigateToPage(ExamScheduleExtractorPage()),
+                  onTap: () => _navigateToPage(const ExamScheduleExtractorPage(
+                    scheduleAssetPath: 'assets/data/exam_schedule.json',
+                    pageTitle: 'Midterm Schedule Finder',
+                  )),
                 ),
                 _GridButton(
                   icon: Icons.calendar_month,
                   label: 'Final \nExam Schedule',
                   color: Colors.purple,
-                  onTap: () => _navigateToPage(ExamScheduleExtractorPage()),
+                  onTap: () => _navigateToPage(const ExamScheduleExtractorPage(
+                    scheduleAssetPath: 'assets/data/final_exam_schedule.json',
+                    pageTitle: 'Final Exam Schedule Finder',
+                  )),
                 ),
                
               ],

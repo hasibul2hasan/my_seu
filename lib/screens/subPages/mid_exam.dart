@@ -6,8 +6,20 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import '../../services/web_ocr_stub.dart'
+  if (dart.library.html) '../../services/web_ocr_web.dart';
 
 class ExamScheduleExtractorPage extends StatefulWidget {
+  final String scheduleAssetPath;
+  final String pageTitle;
+
+  const ExamScheduleExtractorPage({
+    Key? key,
+    this.scheduleAssetPath = "assets/data/exam_schedule.json",
+    this.pageTitle = "Midterm Schedule Finder",
+  }) : super(key: key);
+
   @override
   _ExamScheduleExtractorPageState createState() =>
       _ExamScheduleExtractorPageState();
@@ -17,6 +29,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
   final ImagePicker _picker = ImagePicker();
   bool isProcessing = false;
   String? errorMessage;
+  bool _scheduleUnavailable = false;
 
   List<Map<String, dynamic>> finalResults = [];
   final TextEditingController _courseController = TextEditingController();
@@ -44,7 +57,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
         return;
       }
 
-      await extractText(image.path);
+      await extractTextFromFile(image);
     } catch (e) {
       setState(() {
         isProcessing = false;
@@ -63,6 +76,8 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
 
       String extractedText = recognizedText.text;
 
+      await textRecognizer.close();
+
       if (extractedText.trim().isEmpty) {
         setState(() {
           isProcessing = false;
@@ -78,6 +93,52 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
         errorMessage = "Failed to process image. Error: $e";
       });
     }
+  }
+
+  Future<void> extractTextFromFile(XFile image) async {
+    try {
+      String extractedText = '';
+      if (kIsWeb) {
+        final bytes = await image.readAsBytes();
+        extractedText = await webRecognizeImageBytes(bytes);
+      } else {
+        if (!_isTextRecognitionSupported()) {
+          setState(() {
+            isProcessing = false;
+            errorMessage =
+                "Text recognition is not supported on this platform. Please run on Android or iOS.";
+          });
+          return;
+        }
+
+        final inputImage = InputImage.fromFilePath(image.path);
+        final textRecognizer = TextRecognizer();
+        final recognizedText = await textRecognizer.processImage(inputImage);
+        extractedText = recognizedText.text;
+        await textRecognizer.close();
+      }
+
+      if (extractedText.trim().isEmpty) {
+        setState(() {
+          isProcessing = false;
+          errorMessage = "Could not read any text. Try a clearer screenshot.";
+        });
+        return;
+      }
+
+      await parseAndMatch(extractedText);
+    } catch (e) {
+      setState(() {
+        isProcessing = false;
+        errorMessage = "Failed to process image. Error: $e";
+      });
+    }
+  }
+
+  bool _isTextRecognitionSupported() {
+    if (kIsWeb) return true; // Web handled via Tesseract.js
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
   }
 
   Future<void> parseAndMatch(String extractedText) async {
@@ -219,11 +280,16 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     // Preload cache so first search is fast
     loadExamJson().then((map) {
       _scheduleCache = map;
+      _scheduleUnavailable = map.isEmpty;
       // Show all courses on entering the page
       manualSearch();
     }).catchError((error) {
-      // If preload fails, still try to show all courses
-      manualSearch();
+      // Mark unavailable and show message
+      _scheduleUnavailable = true;
+      setState(() {
+        isProcessing = false;
+        errorMessage = "Not published yet";
+      });
     });
   }
   Future<void> manualSearch() async {
@@ -235,9 +301,24 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     });
 
     try {
+      if (_scheduleUnavailable) {
+        setState(() {
+          isProcessing = false;
+          errorMessage = "Not published yet";
+        });
+        return;
+      }
       final rawCourse = _courseController.text.trim();
       final schedule = _scheduleCache ?? await loadExamJson();
       _scheduleCache ??= schedule;
+      if ((schedule.isEmpty)) {
+        _scheduleUnavailable = true;
+        setState(() {
+          isProcessing = false;
+          errorMessage = "Not published yet";
+        });
+        return;
+      }
       final results = <Map<String, dynamic>>[];
 
       if (rawCourse.isEmpty) {
@@ -343,7 +424,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
   Future<Map<String, dynamic>> loadExamJson() async {
     try {
       String jsonStr =
-          await rootBundle.loadString("assets/data/exam_schedule.json");
+          await rootBundle.loadString(widget.scheduleAssetPath);
       final decoded = json.decode(jsonStr);
       // The JSON file is an array of objects, not a map. We need to
       // build a lookup map keyed like COURSECODE_SECTION (e.g. CSE263_12)
@@ -383,7 +464,8 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
         throw 'Unexpected exam schedule JSON format';
       }
     } catch (e) {
-      throw "Failed to load exam schedule JSON. Error: $e";
+      // Treat missing or unreadable asset as "not published yet"
+      return {};
     }
   }
 
@@ -416,7 +498,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Midterm Schedule Finder"),
+        title: Text(widget.pageTitle),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
