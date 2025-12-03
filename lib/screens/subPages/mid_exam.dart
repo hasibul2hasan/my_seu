@@ -8,7 +8,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 
-// Placeholder imports for web compatibility (assuming these exist in the project structure)
+// Placeholder imports for web compatibility
 import '../../services/web_ocr_stub.dart'
   if (dart.library.html) '../../services/web_ocr_web.dart'; 
 
@@ -19,7 +19,7 @@ class ExamScheduleExtractorPage extends StatefulWidget {
   const ExamScheduleExtractorPage({
     Key? key,
     this.scheduleAssetPath = "assets/data/exam_schedule.json",
-    this.pageTitle = "Midterm Schedule Finder",
+    this.pageTitle = "Exam Schedule Finder",
   }) : super(key: key);
 
   @override
@@ -39,8 +39,9 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
   Map<String, dynamic>? _scheduleCache;
   Timer? _searchDebounce;
   
-  // UI state for manual search expansion
+  // UI state
   bool _isManualSearchExpanded = false;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -242,8 +243,6 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     } else {
       myInventory = [];
     }
-    // Note: Do not call setState here if called from initState, 
-    // but safe here as it's often called after navigation return.
     if(mounted) setState(() {}); 
   }
 
@@ -302,7 +301,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
       }
 
       final results = <Map<String, dynamic>>[];
-      final seenKeys = <String>{}; // To prevent duplicates in manual search too
+      final seenKeys = <String>{};
 
       if (rawCourse.isEmpty) {
         for (final key in schedule.keys) {
@@ -451,7 +450,6 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
         return {};
       }
     } catch (e) {
-      // Treat missing or unreadable asset as unavailable
       return {};
     }
   }
@@ -472,7 +470,6 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     if (parts.isEmpty) return t;
     int hour = int.tryParse(parts[0]) ?? 0;
     
-    // Default minute/second to '00' if not present
     final minutes = parts.length > 1 ? parts[1].padLeft(2, '0') : '00';
     
     final suffix = hour >= 12 ? 'PM' : 'AM';
@@ -482,219 +479,506 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     return '$hour:$minutes $suffix';
   }
 
-
-  // --- Widget Build (Revised UI) ---
-
+  // Build method with corrected errors
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(widget.pageTitle),
+        title: Text(
+          widget.pageTitle,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+          ),
+        ),
+        centerTitle: true,
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.blue[800],
+        iconTheme: IconThemeData(color: Colors.blue[800]),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // 1. Primary Action: Upload Screenshot
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: _scheduleUnavailable ? null : pickImage,
-                icon: const Icon(Icons.camera_alt),
-                label: Text(
-                  _scheduleUnavailable 
-                    ? "Schedule Unavailable" 
-                    : "Upload Registration Screenshot",
-                  style: const TextStyle(fontSize: 16),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
+      body: Column(
+        children: [
+          // Header Section
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            const Divider(height: 32),
-
-            // 2. Secondary Action: My Courses Button & Inventory Chips
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.list),
-                    label: const Text('My Courses'),
-                    onPressed: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const MyInventoryPage()),
-                      );
-                      _loadInventory();
-                    },
+                  // Quick Actions Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ActionCard(
+                          icon: Icons.camera_alt_rounded,
+                          title: "Upload Screenshot",
+                          subtitle: "Extract from registration",
+                          color: Colors.blue,
+                          onTap: _scheduleUnavailable ? null : pickImage,
+                          disabled: _scheduleUnavailable,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _ActionCard(
+                          icon: Icons.list_alt_rounded,
+                          title: "My Courses",
+                          subtitle: "${myInventory.length} saved",
+                          color: Colors.green,
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const MyInventoryPage()),
+                            );
+                            _loadInventory();
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                  if (myInventory.isNotEmpty) ...myInventory.map((inv) {
-                    final code = "${inv['course']}.${inv['section']}";
-                    return InputChip(
-                      label: Text(code),
-                      avatar: const Icon(Icons.class_, size: 18),
-                      onPressed: () {
-                        setState(() {
-                          _courseController.text = code;
-                          _isManualSearchExpanded = true;
-                        });
-                        manualSearch();
-                      },
-                      onDeleted: () => _removeFromInventory(inv['course'].toString(), inv['section'].toString()),
-                    );
-                  }).toList(),
+                  const SizedBox(height: 20),
+                  
+                  // Search Bar
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          Icon(Icons.search_rounded, color: Colors.grey[500]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _courseController,
+                              decoration: InputDecoration(
+                                hintText: 'Search by course code (CSE263 or CSE263.11)',
+                                hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
+                                border: InputBorder.none,
+                                isDense: true,
+                              ),
+                              style: const TextStyle(fontSize: 14),
+                              onChanged: (_) {
+                                _searchDebounce?.cancel();
+                                _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                                  manualSearch();
+                                });
+                              },
+                              onSubmitted: (_) => manualSearch(),
+                            ),
+                          ),
+                          if (_courseController.text.isNotEmpty)
+                            IconButton(
+                              icon: Icon(Icons.clear_rounded, color: Colors.grey[500], size: 20),
+                              onPressed: () {
+                                _courseController.clear();
+                                manualSearch();
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            
-            // 3. Manual Search Section (Collapsible)
-            ExpansionTile(
-              tilePadding: EdgeInsets.zero,
-              title: const Text('Search by Course Code Manually'),
-              leading: Icon(_isManualSearchExpanded ? Icons.arrow_drop_down : Icons.arrow_right),
-              initiallyExpanded: _isManualSearchExpanded,
-              onExpansionChanged: (expanded) {
-                setState(() {
-                  _isManualSearchExpanded = expanded;
-                });
-              },
-              children: [
-                Column(
-                  children: [
-                    TextField(
-                      controller: _courseController,
-                      decoration: InputDecoration(
-                        labelText: 'Course or Course.Section (e.g., CSE263 or CSE263.11)',
-                        suffixIcon: (_courseController.text.isNotEmpty)
-                            ? IconButton(
-                                icon: const Icon(Icons.close),
-                                tooltip: 'Clear',
-                                onPressed: () {
-                                  _courseController.clear();
-                                  manualSearch();
-                                },
-                              )
-                            : null,
-                      ),
-                      enabled: !_scheduleUnavailable,
-                      textInputAction: TextInputAction.search,
-                      onChanged: (_) {
-                        setState(() {});
-                        _searchDebounce?.cancel();
-                        _searchDebounce = Timer(const Duration(milliseconds: 250), () {
-                          manualSearch();
-                        });
+          ),
+
+          // Quick Access Chips
+          if (myInventory.isNotEmpty)
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Quick Access",
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[600],
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 40,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: myInventory.length,
+                      itemBuilder: (context, index) {
+                        final inv = myInventory[index];
+                        final code = "${inv['course']}.${inv['section']}";
+                        return Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Text(
+                              code,
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            avatar: CircleAvatar(
+                              backgroundColor: Colors.blue[100],
+                              radius: 12,
+                              child: Icon(
+                                Icons.class_rounded, // FIXED: class_rounded instead of class__rounded
+                                size: 14,
+                                color: Colors.blue[800],
+                              ),
+                            ),
+                            onSelected: (_) {
+                              _courseController.text = code;
+                              manualSearch();
+                              _scrollController.animateTo(
+                                0,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOut,
+                              );
+                            },
+                            backgroundColor: Colors.grey[50],
+                            selectedColor: Colors.blue[50],
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(color: Colors.grey[300]!),
+                            ),
+                          ),
+                        );
                       },
-                      onSubmitted: (_) => manualSearch(),
                     ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton.icon(
-                        onPressed: _scheduleUnavailable ? null : manualSearch,
-                        icon: const Icon(Icons.search),
-                        label: const Text('Search'),
+                  ),
+                ],
+              ),
+            ),
+
+          // Status Indicators
+          if (isProcessing)
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Column(
+                children: [
+                  CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[800]!),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Processing...",
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          if (errorMessage != null && !isProcessing)
+            Container(
+              width: double.infinity,
+              color: Colors.red[50],
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline_rounded, color: Colors.red[700]),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      errorMessage!,
+                      style: TextStyle(
+                        color: Colors.red[700],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Results Section
+          Expanded(
+            child: _buildResultsSection(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultsSection() {
+    if (finalResults.isEmpty && !isProcessing && errorMessage == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.schedule_rounded,
+              size: 64,
+              color: Colors.grey[300],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "No results to display",
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                "Upload a registration screenshot or search by course code to find exam schedules",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(20),
+      itemCount: finalResults.length,
+      itemBuilder: (context, index) {
+        final item = finalResults[index];
+        final code = "${item['course']}.${item['section']}";
+        final inInv = myInventory.any((e) => "${e['course']}.${e['section']}" == code);
+        
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () {},
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header with course code and action button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            code,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              color: Colors.blue[800],
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            inInv ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                            color: inInv ? Colors.blue[800] : Colors.grey[400],
+                            size: 20,
+                          ),
+                          onPressed: () {
+                            if (inInv) {
+                              _removeFromInventory(
+                                item['course'].toString(),
+                                item['section'].toString(),
+                              );
+                            } else {
+                              _addToInventory(item);
+                            }
+                          },
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: inInv ? 'Remove from My Courses' : 'Add to My Courses',
+                        ),
+                      ],
+                    ),
+                    
+                    // Course title
+                    if (item['courseTitle'] != null && item['courseTitle'].toString().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          item['courseTitle'].toString(),
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 12,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    
+                    // Schedule details
+                    _buildDetailRow(
+                      icon: Icons.calendar_today_rounded,
+                      label: "Date",
+                      value: item['date']?.toString() ?? 'N/A',
+                    ),
+                    _buildDetailRow(
+                      icon: Icons.access_time_rounded,
+                      label: "Time (12h)",
+                      value: item['time12']?.toString() ?? 'N/A',
+                    ),
+                    _buildDetailRow(
+                      icon: Icons.schedule_rounded,
+                      label: "Time (24h)",
+                      value: item['time24']?.toString() ?? 'N/A',
+                    ),
+                    if (item['faculty'] != null && item['faculty'].toString().isNotEmpty)
+                      _buildDetailRow(
+                        icon: Icons.person_rounded,
+                        label: "Faculty",
+                        value: item['faculty'].toString(),
+                      ),
                   ],
                 ),
-                const SizedBox(height: 8),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            icon,
+            size: 14,
+            color: Colors.grey[500],
+          ),
+          const SizedBox(width: 8),
+          Text(
+            "$label: ",
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: Colors.grey[800],
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Keep the _ActionCard widget (it's fine as a separate widget)
+class _ActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback? onTap;
+  final bool disabled;
+
+  const _ActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    this.onTap,
+    this.disabled = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: disabled ? 0.5 : 1.0,
+      child: Material(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: disabled ? null : onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  backgroundColor: color.withOpacity(0.2),
+                  radius: 20,
+                  child: Icon(
+                    icon,
+                    color: color,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 10,
+                  ),
+                ),
               ],
             ),
-            const Divider(height: 0),
-
-            // 4. Status and Results Display
-            
-            // Loading Indicator
-            if (isProcessing) const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20.0),
-              child: CircularProgressIndicator(),
-            ),
-
-            // Error Message
-            if (errorMessage != null && !isProcessing) ...[
-              const SizedBox(height: 16),
-              Text(
-                '🚨 ${errorMessage!}',
-                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              )
-            ],
-
-            // Results List
-            if (!isProcessing && finalResults.isNotEmpty)
-              Expanded(
-                child: ListView.builder(
-                  itemCount: finalResults.length,
-                  itemBuilder: (context, index) {
-                    final item = finalResults[index];
-                    final code = "${item['course']}.${item['section']}";
-                    final inInv = myInventory.any((e) => "${e['course']}.${e['section']}" == code);
-                    return Card(
-                      elevation: 2,
-                      margin: const EdgeInsets.symmetric(vertical: 6.0),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(12),
-                        title: Text(
-                          code,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        subtitle: Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(text: "${item['courseTitle'] ?? ''}\n"),
-                              const TextSpan(text: "🗓️ ", style: TextStyle(fontWeight: FontWeight.bold)),
-                              TextSpan(text: "Date: ${item['date']}\n"),
-                              const TextSpan(text: "⏰ ", style: TextStyle(fontWeight: FontWeight.bold)),
-                              TextSpan(text: "Time (24h): ${item['time24'] ?? 'N/A'}\n"), // 24h Time
-                              const TextSpan(text: "⏱️ ", style: TextStyle(fontWeight: FontWeight.bold)),
-                              TextSpan(text: "Time (12h): ${item['time12'] ?? 'N/A'}\n"), // 12h Time
-                              const TextSpan(text: "🧑‍🏫 ", style: TextStyle(fontWeight: FontWeight.bold)),
-                              TextSpan(text: "Faculty: ${item['faculty'] ?? ''}"),
-                            ],
-                          ),
-                          style: const TextStyle(height: 1.5),
-                        ),
-                        isThreeLine: true,
-                        trailing: inInv
-                            ? IconButton(
-                                tooltip: 'Remove from My Courses',
-                                icon: const Icon(Icons.delete_outline, color: Colors.red),
-                                onPressed: () => _removeFromInventory(
-                                  item['course'].toString(),
-                                  item['section'].toString(),
-                                ),
-                              )
-                            : IconButton(
-                                tooltip: 'Add to My Courses',
-                                icon: const Icon(Icons.playlist_add, color: Colors.blue),
-                                onPressed: () => _addToInventory(item),
-                              ),
-                      ),
-                    );
-                  },
-                ),
-              )
-            else if (!isProcessing && errorMessage == null)
-               const Expanded(
-                 child: Center(
-                   child: Text(
-                     "Upload a screenshot or use the manual search to find exam schedules.",
-                     textAlign: TextAlign.center,
-                     style: TextStyle(color: Colors.grey, fontSize: 16),
-                   ),
-                 ),
-               ),
-          ],
+          ),
         ),
       ),
     );
