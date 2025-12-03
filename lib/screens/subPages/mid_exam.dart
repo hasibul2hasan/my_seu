@@ -7,8 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+
+// Placeholder imports for web compatibility (assuming these exist in the project structure)
 import '../../services/web_ocr_stub.dart'
-  if (dart.library.html) '../../services/web_ocr_web.dart';
+  if (dart.library.html) '../../services/web_ocr_web.dart'; 
 
 class ExamScheduleExtractorPage extends StatefulWidget {
   final String scheduleAssetPath;
@@ -34,12 +36,38 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
   List<Map<String, dynamic>> finalResults = [];
   final TextEditingController _courseController = TextEditingController();
   List<Map<String, dynamic>> myInventory = [];
-  bool showInventoryHints = true;
   Map<String, dynamic>? _scheduleCache;
-  bool hasSearched = false;
   Timer? _searchDebounce;
+  
+  // UI state for manual search expansion
+  bool _isManualSearchExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInventory();
+    loadExamJson().then((map) {
+      _scheduleCache = map;
+      _scheduleUnavailable = map.isEmpty;
+      if (_courseController.text.isEmpty && !_scheduleUnavailable) {
+        manualSearch(); // Show all initially
+      }
+    }).catchError((error) {
+      _scheduleUnavailable = true;
+      setState(() {
+        isProcessing = false;
+        errorMessage = "Exam schedule is not published yet or failed to load.";
+      });
+    });
+  }
+
+  // --- OCR & Text Extraction Methods ---
 
   Future<void> pickImage() async {
+    if (_scheduleUnavailable) {
+       setState(() => errorMessage = "Schedule data is unavailable. Cannot process image.");
+       return;
+    }
     try {
       setState(() {
         isProcessing = true;
@@ -61,36 +89,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     } catch (e) {
       setState(() {
         isProcessing = false;
-        errorMessage = "Unexpected error: $e";
-      });
-    }
-  }
-
-  Future<void> extractText(String imagePath) async {
-    try {
-      final inputImage = InputImage.fromFilePath(imagePath);
-      final textRecognizer = TextRecognizer();
-
-      RecognizedText recognizedText =
-          await textRecognizer.processImage(inputImage);
-
-      String extractedText = recognizedText.text;
-
-      await textRecognizer.close();
-
-      if (extractedText.trim().isEmpty) {
-        setState(() {
-          isProcessing = false;
-          errorMessage = "Could not read any text. Try a clearer screenshot.";
-        });
-        return;
-      }
-
-      await parseAndMatch(extractedText);
-    } catch (e) {
-      setState(() {
-        isProcessing = false;
-        errorMessage = "Failed to process image. Error: $e";
+        errorMessage = "Unexpected error during image picking: $e";
       });
     }
   }
@@ -99,9 +98,12 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     try {
       String extractedText = '';
       if (kIsWeb) {
+        // Web handling via Tesseract.js stub
         final bytes = await image.readAsBytes();
-        extractedText = await webRecognizeImageBytes(bytes);
+        // Assuming webRecognizeImageBytes is defined in web_ocr_web.dart
+        extractedText = await webRecognizeImageBytes(bytes); 
       } else {
+        // Mobile handling via Google ML Kit
         if (!_isTextRecognitionSupported()) {
           setState(() {
             isProcessing = false;
@@ -136,10 +138,12 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
   }
 
   bool _isTextRecognitionSupported() {
-    if (kIsWeb) return true; // Web handled via Tesseract.js
+    if (kIsWeb) return true;
     return defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS;
   }
+
+  // --- Parsing and Matching ---
 
   Future<void> parseAndMatch(String extractedText) async {
     try {
@@ -159,6 +163,13 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
       }
 
       final schedule = _scheduleCache ?? await loadExamJson();
+      if (schedule.isEmpty) {
+        setState(() {
+          isProcessing = false;
+          errorMessage = 'Schedule is currently unavailable.';
+        });
+        return;
+      }
       _scheduleCache ??= schedule;
       final results = <Map<String, dynamic>>[];
       final seenKeys = <String>{};
@@ -168,44 +179,33 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
         final num = (m.group(2) ?? '');
         final base = '$dept$num';
         String? section = m.group(3);
+
         if (section != null) {
-          section = section.replaceAll(RegExp(r'\s+'), '');
-          section = section.replaceFirst(RegExp(r'^0+'), '');
+          section = section.replaceAll(RegExp(r'\s+'), '').replaceFirst(RegExp(r'^0+'), '');
           if (section.isEmpty) section = '0';
         }
+
+        final keysToCheck = <String>[];
         if (section != null) {
-          final key = '${base}_${section}';
+          keysToCheck.add('${base}_${section}');
+        } else {
+          keysToCheck.addAll(schedule.keys.where((k) => k.startsWith(base + '_')));
+        }
+        
+        for (final key in keysToCheck) {
           if (schedule.containsKey(key) && !seenKeys.contains(key)) {
             seenKeys.add(key);
+            final parts = key.split('_');
+            final sec = parts.length > 1 ? parts[1] : '';
             results.add({
               'course': base,
-              'section': section,
+              'section': sec,
               'date': schedule[key]['date'],
               'courseTitle': schedule[key]['courseTitle'],
               'faculty': schedule[key]['faculty'],
               'time24': schedule[key]['time24'],
               'time12': schedule[key]['time12'],
             });
-          }
-        } else {
-          final possible = schedule.keys
-              .where((k) => k.startsWith(base + '_'))
-              .toList();
-          for (final key in possible) {
-            if (!seenKeys.contains(key)) {
-              seenKeys.add(key);
-              final parts = key.split('_');
-              final sec = parts.length > 1 ? parts[1] : '';
-              results.add({
-                'course': base,
-                'section': sec,
-                'date': schedule[key]['date'],
-                'courseTitle': schedule[key]['courseTitle'],
-                'faculty': schedule[key]['faculty'],
-                'time24': schedule[key]['time24'],
-                'time12': schedule[key]['time12'],
-              });
-            }
           }
         }
       }
@@ -231,6 +231,8 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     }
   }
 
+  // --- Inventory & Data Loading Methods ---
+
   Future<void> _loadInventory() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('my_courses');
@@ -240,7 +242,9 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     } else {
       myInventory = [];
     }
-    setState(() {});
+    // Note: Do not call setState here if called from initState, 
+    // but safe here as it's often called after navigation return.
+    if(mounted) setState(() {}); 
   }
 
   Future<void> _addToInventory(Map<String, dynamic> item) async {
@@ -271,75 +275,58 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     });
   }
 
-  // _clearInventory removed from header per request; keep helpers minimal.
-
-  @override
-  void initState() {
-    super.initState();
-    _loadInventory();
-    // Preload cache so first search is fast
-    loadExamJson().then((map) {
-      _scheduleCache = map;
-      _scheduleUnavailable = map.isEmpty;
-      // Show all courses on entering the page
-      manualSearch();
-    }).catchError((error) {
-      // Mark unavailable and show message
-      _scheduleUnavailable = true;
-      setState(() {
-        isProcessing = false;
-        errorMessage = "Not published yet";
-      });
-    });
-  }
   Future<void> manualSearch() async {
     setState(() {
       isProcessing = true;
       errorMessage = null;
-      finalResults.clear();
-      hasSearched = true;
     });
 
     try {
       if (_scheduleUnavailable) {
         setState(() {
           isProcessing = false;
-          errorMessage = "Not published yet";
+          errorMessage = "Exam schedule is not published yet.";
         });
         return;
       }
       final rawCourse = _courseController.text.trim();
       final schedule = _scheduleCache ?? await loadExamJson();
       _scheduleCache ??= schedule;
-      if ((schedule.isEmpty)) {
-        _scheduleUnavailable = true;
+
+      if (schedule.isEmpty && rawCourse.isNotEmpty) {
         setState(() {
           isProcessing = false;
-          errorMessage = "Not published yet";
+          errorMessage = "Schedule is unavailable.";
         });
         return;
       }
+
       final results = <Map<String, dynamic>>[];
+      final seenKeys = <String>{}; // To prevent duplicates in manual search too
 
       if (rawCourse.isEmpty) {
         for (final key in schedule.keys) {
-          final parts = key.split('_');
-          final base = parts.isNotEmpty ? parts.first : '';
-          final sec = parts.length > 1 ? parts[1] : '';
-          results.add({
-            'course': base,
-            'section': sec,
-            'date': schedule[key]['date'],
-            'courseTitle': schedule[key]['courseTitle'],
-            'faculty': schedule[key]['faculty'],
-            'time24': schedule[key]['time24'],
-            'time12': schedule[key]['time12'],
-          });
+          if (!seenKeys.contains(key)) {
+            seenKeys.add(key);
+            final parts = key.split('_');
+            final base = parts.isNotEmpty ? parts.first : '';
+            final sec = parts.length > 1 ? parts[1] : '';
+            results.add({
+              'course': base,
+              'section': sec,
+              'date': schedule[key]['date'],
+              'courseTitle': schedule[key]['courseTitle'],
+              'faculty': schedule[key]['faculty'],
+              'time24': schedule[key]['time24'],
+              'time12': schedule[key]['time12'],
+            });
+          }
         }
       } else {
-        // dot-format like CSE281.11
+        // dot-format check first (CSE281.11)
         final dotPattern = RegExp(r'^\s*([A-Za-z]{3,4})\s*([\.-_\s]?)\s*(\d{3})\s*\.\s*(\d+)\s*$', caseSensitive: false);
         final dotMatch = dotPattern.firstMatch(rawCourse);
+        
         if (dotMatch != null) {
           final dept = (dotMatch.group(1) ?? '').toUpperCase();
           final num = (dotMatch.group(3) ?? '');
@@ -358,7 +345,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
             });
           }
         } else {
-          // Normalize course code: allow inputs like cse 263 or CSE-263
+          // Normalize course code (e.g., CSE263)
           final normalizedCourse = rawCourse
               .toUpperCase()
               .replaceAll(RegExp(r'[^A-Z0-9]'), '');
@@ -376,22 +363,25 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
               .where((k) => k.startsWith(normalizedCourse + '_'))
               .toList();
           for (final key in possible) {
-            final parts = key.split('_');
-            final sec = parts.length > 1 ? parts[1] : '';
-            results.add({
-              'course': normalizedCourse,
-              'section': sec,
-              'date': schedule[key]['date'],
-              'courseTitle': schedule[key]['courseTitle'],
-              'faculty': schedule[key]['faculty'],
-              'time24': schedule[key]['time24'],
-              'time12': schedule[key]['time12'],
-            });
+            if (!seenKeys.contains(key)) {
+              seenKeys.add(key);
+              final parts = key.split('_');
+              final sec = parts.length > 1 ? parts[1] : '';
+              results.add({
+                'course': normalizedCourse,
+                'section': sec,
+                'date': schedule[key]['date'],
+                'courseTitle': schedule[key]['courseTitle'],
+                'faculty': schedule[key]['faculty'],
+                'time24': schedule[key]['time24'],
+                'time12': schedule[key]['time12'],
+              });
+            }
           }
         }
       }
 
-      if (results.isEmpty) {
+      if (results.isEmpty && rawCourse.isNotEmpty) {
         setState(() {
           isProcessing = false;
           errorMessage = 'No matching exam found for input.';
@@ -426,9 +416,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
       String jsonStr =
           await rootBundle.loadString(widget.scheduleAssetPath);
       final decoded = json.decode(jsonStr);
-      // The JSON file is an array of objects, not a map. We need to
-      // build a lookup map keyed like COURSECODE_SECTION (e.g. CSE263_12)
-      // from entries whose "Course Code" looks like CSE263.12
+      // The JSON file is an array of objects
       if (decoded is List) {
         final Map<String, dynamic> scheduleMap = {};
         final codePattern = RegExp(r'^([A-Z]{3,4}\d{3})\.(\d+)$');
@@ -441,7 +429,6 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                 final base = match.group(1)!; // e.g. CSE263
                 final section = match.group(2)!; // e.g. 12
                 final key = '${base}_${section}';
-                // Normalize into the structure expected by parseAndMatch
                 final start = item['Start Time'];
                 final end = item['End Time'];
                 final time24 = _combineTime(start, end);
@@ -461,10 +448,10 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
       } else if (decoded is Map<String, dynamic>) {
         return decoded;
       } else {
-        throw 'Unexpected exam schedule JSON format';
+        return {};
       }
     } catch (e) {
-      // Treat missing or unreadable asset as "not published yet"
+      // Treat missing or unreadable asset as unavailable
       return {};
     }
   }
@@ -481,18 +468,22 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     if (time == null) return null;
     final t = time.toString().trim();
     if (t.isEmpty) return null;
-    // Expect formats like HH:MM or HH:MM:SS
     final parts = t.split(':');
     if (parts.isEmpty) return t;
     int hour = int.tryParse(parts[0]) ?? 0;
-    final rest = parts.length > 2
-        ? '${parts[1]}:${parts[2]}'
-        : (parts.length > 1 ? parts[1] : '00');
+    
+    // Default minute/second to '00' if not present
+    final minutes = parts.length > 1 ? parts[1].padLeft(2, '0') : '00';
+    
     final suffix = hour >= 12 ? 'PM' : 'AM';
     hour = hour % 12;
     if (hour == 0) hour = 12;
-    return '$hour:$rest $suffix';
+    
+    return '$hour:$minutes $suffix';
   }
+
+
+  // --- Widget Build (Revised UI) ---
 
   @override
   Widget build(BuildContext context) {
@@ -504,104 +495,143 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Manual search inputs
-            TextField(
-              controller: _courseController,
-              decoration: InputDecoration(
-                labelText: 'Course or Course.Section (e.g., CSE263 or CSE263.11)',
-                suffixIcon: (_courseController.text.isNotEmpty)
-                    ? IconButton(
-                        icon: const Icon(Icons.close),
-                        tooltip: 'Clear',
-                        onPressed: () {
-                          _courseController.clear();
-                          // Immediately reset the search results when clearing
-                          manualSearch();
-                        },
-                      )
-                    : null,
+            // 1. Primary Action: Upload Screenshot
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: _scheduleUnavailable ? null : pickImage,
+                icon: const Icon(Icons.camera_alt),
+                label: Text(
+                  _scheduleUnavailable 
+                    ? "Schedule Unavailable" 
+                    : "Upload Registration Screenshot",
+                  style: const TextStyle(fontSize: 16),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
-              textInputAction: TextInputAction.search,
-              onChanged: (_) {
-                setState(() {});
-                _searchDebounce?.cancel();
-                _searchDebounce = Timer(const Duration(milliseconds: 250), () {
-                  manualSearch();
-                });
-              },
-              onSubmitted: (_) => manualSearch(),
             ),
-            // My Courses button will be shown inline with inventory chips below
-            // My Courses button always visible; chips show before search
-            ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.list),
-                      label: const Text('My Courses'),
-                      onPressed: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const MyInventoryPage()),
-                        );
-                        // Refresh local inventory after returning
-                        _loadInventory();
-                        setState(() {});
-                      },
-                    ),
-                    if (myInventory.isNotEmpty) ...myInventory.map((inv) {
+            const Divider(height: 32),
+
+            // 2. Secondary Action: My Courses Button & Inventory Chips
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.list),
+                    label: const Text('My Courses'),
+                    onPressed: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const MyInventoryPage()),
+                      );
+                      _loadInventory();
+                    },
+                  ),
+                  if (myInventory.isNotEmpty) ...myInventory.map((inv) {
                     final code = "${inv['course']}.${inv['section']}";
                     return InputChip(
                       label: Text(code),
+                      avatar: const Icon(Icons.class_, size: 18),
                       onPressed: () {
                         setState(() {
                           _courseController.text = code;
+                          _isManualSearchExpanded = true;
                         });
                         manualSearch();
                       },
                       onDeleted: () => _removeFromInventory(inv['course'].toString(), inv['section'].toString()),
                     );
-                    }).toList(),
+                  }).toList(),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // 3. Manual Search Section (Collapsible)
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('Search by Course Code Manually'),
+              leading: Icon(_isManualSearchExpanded ? Icons.arrow_drop_down : Icons.arrow_right),
+              initiallyExpanded: _isManualSearchExpanded,
+              onExpansionChanged: (expanded) {
+                setState(() {
+                  _isManualSearchExpanded = expanded;
+                });
+              },
+              children: [
+                Column(
+                  children: [
+                    TextField(
+                      controller: _courseController,
+                      decoration: InputDecoration(
+                        labelText: 'Course or Course.Section (e.g., CSE263 or CSE263.11)',
+                        suffixIcon: (_courseController.text.isNotEmpty)
+                            ? IconButton(
+                                icon: const Icon(Icons.close),
+                                tooltip: 'Clear',
+                                onPressed: () {
+                                  _courseController.clear();
+                                  manualSearch();
+                                },
+                              )
+                            : null,
+                      ),
+                      enabled: !_scheduleUnavailable,
+                      textInputAction: TextInputAction.search,
+                      onChanged: (_) {
+                        setState(() {});
+                        _searchDebounce?.cancel();
+                        _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                          manualSearch();
+                        });
+                      },
+                      onSubmitted: (_) => manualSearch(),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton.icon(
+                        onPressed: _scheduleUnavailable ? null : manualSearch,
+                        icon: const Icon(Icons.search),
+                        label: const Text('Search'),
+                      ),
+                    ),
                   ],
                 ),
-              ),
-            ],
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: ElevatedButton.icon(
-                onPressed: manualSearch,
-                icon: const Icon(Icons.search),
-                label: const Text('Search Manually'),
-              ),
+                const SizedBox(height: 8),
+              ],
             ),
-            const Divider(height: 24),
-            ElevatedButton(
-              onPressed: pickImage,
-              child: Text("Upload Registration Screenshot"),
+            const Divider(height: 0),
+
+            // 4. Status and Results Display
+            
+            // Loading Indicator
+            if (isProcessing) const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20.0),
+              child: CircularProgressIndicator(),
             ),
-            const SizedBox(height: 20),
 
-            /// Loading Indicator
-            if (isProcessing) CircularProgressIndicator(),
-
-            /// Error Message
-            if (errorMessage != null) ...[
+            // Error Message
+            if (errorMessage != null && !isProcessing) ...[
               const SizedBox(height: 16),
               Text(
-                errorMessage!,
-                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                '🚨 ${errorMessage!}',
+                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
               )
             ],
 
-            // Inventory detailed list removed per request; only show chips under search and in My Courses page
-
-            /// Display All Courses / Search Results
-            if (!isProcessing)
+            // Results List
+            if (!isProcessing && finalResults.isNotEmpty)
               Expanded(
                 child: ListView.builder(
                   itemCount: finalResults.length,
@@ -610,19 +640,35 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                     final code = "${item['course']}.${item['section']}";
                     final inInv = myInventory.any((e) => "${e['course']}.${e['section']}" == code);
                     return Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 6.0),
                       child: ListTile(
-                        title: Text(code),
-                        subtitle: Text(
-                          "Date: ${item['date']}\n"
-                          "Course Title: ${item['courseTitle'] ?? ''}\n"
-                          "Faculty: ${item['faculty'] ?? ''}\n"
-                          "Time (24h): ${item['time24'] ?? ''}\n"
-                          "Time (12h): ${item['time12'] ?? ''}",
+                        contentPadding: const EdgeInsets.all(12),
+                        title: Text(
+                          code,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),
+                        subtitle: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(text: "${item['courseTitle'] ?? ''}\n"),
+                              const TextSpan(text: "🗓️ ", style: TextStyle(fontWeight: FontWeight.bold)),
+                              TextSpan(text: "Date: ${item['date']}\n"),
+                              const TextSpan(text: "⏰ ", style: TextStyle(fontWeight: FontWeight.bold)),
+                              TextSpan(text: "Time (24h): ${item['time24'] ?? 'N/A'}\n"), // 24h Time
+                              const TextSpan(text: "⏱️ ", style: TextStyle(fontWeight: FontWeight.bold)),
+                              TextSpan(text: "Time (12h): ${item['time12'] ?? 'N/A'}\n"), // 12h Time
+                              const TextSpan(text: "🧑‍🏫 ", style: TextStyle(fontWeight: FontWeight.bold)),
+                              TextSpan(text: "Faculty: ${item['faculty'] ?? ''}"),
+                            ],
+                          ),
+                          style: const TextStyle(height: 1.5),
+                        ),
+                        isThreeLine: true,
                         trailing: inInv
                             ? IconButton(
                                 tooltip: 'Remove from My Courses',
-                                icon: const Icon(Icons.delete_outline),
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
                                 onPressed: () => _removeFromInventory(
                                   item['course'].toString(),
                                   item['section'].toString(),
@@ -630,14 +676,24 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                               )
                             : IconButton(
                                 tooltip: 'Add to My Courses',
-                                icon: const Icon(Icons.playlist_add),
+                                icon: const Icon(Icons.playlist_add, color: Colors.blue),
                                 onPressed: () => _addToInventory(item),
                               ),
                       ),
                     );
                   },
                 ),
-              ),
+              )
+            else if (!isProcessing && errorMessage == null)
+               const Expanded(
+                 child: Center(
+                   child: Text(
+                     "Upload a screenshot or use the manual search to find exam schedules.",
+                     textAlign: TextAlign.center,
+                     style: TextStyle(color: Colors.grey, fontSize: 16),
+                   ),
+                 ),
+               ),
           ],
         ),
       ),
