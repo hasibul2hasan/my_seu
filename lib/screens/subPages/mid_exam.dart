@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import './my_inventory_page.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:url_launcher/url_launcher.dart';
 
 // Placeholder imports for web compatibility
 import '../../services/web_ocr_stub.dart'
@@ -42,10 +44,13 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
   // UI state
   bool _isManualSearchExpanded = false;
   final ScrollController _scrollController = ScrollController();
+  final Uri _webDownloadUri = Uri.parse('https://myseu.app');
+  late final TapGestureRecognizer _linkRecognizer;
 
   @override
   void initState() {
     super.initState();
+    _linkRecognizer = TapGestureRecognizer()..onTap = _openWebsite;
     _loadInventory();
     loadExamJson().then((map) {
       _scheduleCache = map;
@@ -62,7 +67,23 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
     });
   }
 
+  @override
+  void dispose() {
+    _linkRecognizer.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   // --- OCR & Text Extraction Methods ---
+
+  Future<void> _openWebsite() async {
+    try {
+      await launchUrl(_webDownloadUri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Fallback to in-app webview if external fails
+      await launchUrl(_webDownloadUri, mode: LaunchMode.platformDefault);
+    }
+  }
 
   Future<void> pickImage() async {
     if (_scheduleUnavailable) {
@@ -528,10 +549,15 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                         child: _ActionCard(
                           icon: Icons.camera_alt_rounded,
                           title: "Upload Screenshot",
-                          subtitle: "Extract from registration",
+                          subtitle: kIsWeb
+                              ? "Unavailable on web — use the mobile app"
+                              : "Extract from registration",
                           color: Colors.blue,
-                          onTap: _scheduleUnavailable ? null : pickImage,
-                          disabled: _scheduleUnavailable,
+                          onTap: kIsWeb
+                              ? _openWebsite
+                              : (_scheduleUnavailable ? null : pickImage),
+                          disabled: _scheduleUnavailable || kIsWeb,
+                          allowTapWhenDisabled: kIsWeb,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -607,6 +633,35 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
               ),
             ),
           ),
+
+          // Web-only notice
+          if (kIsWeb)
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline_rounded, color: Colors.blue[700], size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: RichText(
+                      text: TextSpan(
+                        style: TextStyle(color: Colors.grey[800], fontSize: 12),
+                        children: [
+                          const TextSpan(text: 'Screenshot upload is not available on web. '),
+                          TextSpan(
+                            text: 'Download the app from website to search via screenshot.',
+                            style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.w600),
+                            recognizer: _linkRecognizer,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // Quick Access Chips
           if (myInventory.isNotEmpty)
@@ -929,6 +984,7 @@ class _ActionCard extends StatelessWidget {
   final Color color;
   final VoidCallback? onTap;
   final bool disabled;
+  final bool allowTapWhenDisabled;
 
   const _ActionCard({
     required this.icon,
@@ -937,6 +993,7 @@ class _ActionCard extends StatelessWidget {
     required this.color,
     this.onTap,
     this.disabled = false,
+    this.allowTapWhenDisabled = false,
   });
 
   @override
@@ -947,7 +1004,7 @@ class _ActionCard extends StatelessWidget {
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          onTap: disabled ? null : onTap,
+          onTap: (disabled && !allowTapWhenDisabled) ? null : onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.all(16),
