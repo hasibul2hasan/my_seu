@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:ums/screens/subPages/mid_exam.dart';
+import 'package:my_seu/screens/subPages/mid_exam.dart';
 
 class ServicesTab extends StatefulWidget {
   const ServicesTab({Key? key}) : super(key: key);
@@ -261,7 +261,7 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   description: 'Find your midterm dates & times',
                   color: Colors.blue,
                   accentColor: Colors.blueAccent,
-                  onTap: () => _navigateToPage(const ExamScheduleExtractorPage(
+                  onTap: () => _navigateToPage(ExamScheduleExtractorPage(
                     scheduleAssetPath: 'assets/data/mid_exam.json',
                     pageTitle: 'Midterm Schedule Finder',
                   )),
@@ -272,7 +272,7 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   description: 'Final exam dates & locations',
                   color: Colors.purple,
                   accentColor: Colors.purpleAccent,
-                  onTap: () => _navigateToPage(const ExamScheduleExtractorPage(
+                  onTap: () => _navigateToPage(ExamScheduleExtractorPage(
                     scheduleAssetPath: 'assets/data/final_exam.json',
                     pageTitle: 'Final Exam Schedule Finder',
                   )),
