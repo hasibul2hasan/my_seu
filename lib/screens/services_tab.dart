@@ -61,7 +61,7 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   label: 'MidTerm \nExam Schedule',
                   color: Colors.blue,
                   onTap: () => _navigateToPage(const ExamScheduleExtractorPage(
-                    scheduleAssetPath: 'assets/data/exam_schedule.json',
+                    scheduleAssetPath: 'assets/data/mid_exam.json',
                     pageTitle: 'Midterm Schedule Finder',
                   )),
                 ),
@@ -70,7 +70,7 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   label: 'Final \nExam Schedule',
                   color: Colors.purple,
                   onTap: () => _navigateToPage(const ExamScheduleExtractorPage(
-                    scheduleAssetPath: 'assets/data/final_exam_schedule.json',
+                    scheduleAssetPath: 'assets/data/final_exam.json',
                     pageTitle: 'Final Exam Schedule Finder',
                   )),
                 ),
