@@ -738,7 +738,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
             ),
             const SizedBox(height: 16),
             Text(
-              "No results to display",
+              "Not Published Yet",
               style: TextStyle(
                 color: Colors.grey[400],
                 fontSize: 16,
@@ -749,7 +749,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 40),
               child: Text(
-                "Upload a registration screenshot or search by course code to find exam schedules",
+                "Upload a registration screenshot or search by course code to find exam schedules once published.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.grey[400],
