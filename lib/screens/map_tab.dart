@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:permission_handler/permission_handler.dart'; // For Android runtime permissions
 import 'package:geolocator/geolocator.dart'; // For iOS location permissions
 import 'dart:io' show Platform;
+import 'package:url_launcher/url_launcher.dart';
 
 class MapTab extends StatefulWidget {
   const MapTab({Key? key}) : super(key: key);
@@ -24,8 +26,10 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
-    _initializeWebView();
-    _requestLocationPermission();
+    if (!kIsWeb) {
+      _initializeWebView();
+      _requestLocationPermission();
+    }
   }
 
   void _initializeWebView() {
@@ -119,6 +123,42 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
   @override
   Widget build(BuildContext context) {
     super.build(context);
+
+    // On web, show a placeholder page instead of WebView
+    if (kIsWeb) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Download the app to use this feature',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: () async {
+                  final uri = Uri.parse(initialUrl);
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: const FlutterLogo(size: 64),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () async {
+                  final uri = Uri.parse(initialUrl);
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                },
+                child: const Text('Open in browser'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return WillPopScope(
       onWillPop: _onWillPop, // Ensure onWillPop is correctly set here

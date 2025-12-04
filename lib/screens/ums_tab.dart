@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class UmsTab extends StatefulWidget {
   const UmsTab({Key? key}) : super(key: key);
@@ -9,7 +11,7 @@ class UmsTab extends StatefulWidget {
 }
 
 class _UmsTabState extends State<UmsTab> with AutomaticKeepAliveClientMixin {
-  late WebViewController _webViewController;
+  WebViewController? _webViewController;
   String initialUrl = 'https://ums.seu.edu.bd/';
 
   @override
@@ -18,12 +20,13 @@ class _UmsTabState extends State<UmsTab> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
+    if (kIsWeb) return;
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (String url) {
-            _webViewController.runJavaScript(
+            _webViewController?.runJavaScript(
               "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');",
             );
           },
@@ -33,12 +36,12 @@ class _UmsTabState extends State<UmsTab> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _reloadWebView() async {
-    await _webViewController.reload();
+    await _webViewController?.reload();
   }
 
   Future<bool> _onWillPop() async {
-    if (await _webViewController.canGoBack()) {
-      _webViewController.goBack();
+    if (_webViewController != null && await _webViewController!.canGoBack()) {
+      _webViewController!.goBack();
       return false; // Prevent the app from closing.
     }
     return true; // Allow the app to close if there's no back history.
@@ -48,11 +51,47 @@ class _UmsTabState extends State<UmsTab> with AutomaticKeepAliveClientMixin {
   Widget build(BuildContext context) {
     super.build(context);
 
+    if (kIsWeb) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Download the app to use this feature',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: () async {
+                  final uri = Uri.parse(initialUrl);
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: const FlutterLogo(size: 64),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () async {
+                  final uri = Uri.parse(initialUrl);
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                },
+                child: const Text('Open in browser'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Stack(
         children: [
-          WebViewWidget(controller: _webViewController),
+          if (_webViewController != null)
+            WebViewWidget(controller: _webViewController!),
           Positioned(
             bottom: 16,
             right: 16,
