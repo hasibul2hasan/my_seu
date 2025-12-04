@@ -12,6 +12,55 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
   @override
   bool get wantKeepAlive => true;
 
+  void _showComingSoonSnack() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        elevation: 6,
+        backgroundColor: isDark ? Colors.grey[850] : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.auto_awesome_rounded, color: Colors.blue, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Coming soon',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'We’re polishing this feature. Stay tuned!',
+                    style: TextStyle(color: Colors.black87),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        action: SnackBarAction(
+          label: 'Nice',
+          textColor: Colors.blue,
+          onPressed: () {},
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   void _navigateToPage(Widget page) {
     Navigator.push(
       context,
@@ -234,9 +283,8 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   description: 'View your weekly timetable',
                   color: Colors.green,
                   accentColor: Colors.greenAccent,
-                  onTap: () {
-                    // Add your class schedule page here
-                  },
+                  onTap: _showComingSoonSnack,
+                  comingSoon: true,
                 ),
                 _ServiceCard(
                   icon: Icons.library_books_rounded,
@@ -244,9 +292,8 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   description: 'Browse available courses',
                   color: Colors.orange,
                   accentColor: Colors.orangeAccent,
-                  onTap: () {
-                    // Add your course catalog page here
-                  },
+                  onTap: _showComingSoonSnack,
+                  comingSoon: true,
                 ),
                 _ServiceCard(
                   icon: Icons.grade_rounded,
@@ -254,9 +301,8 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   description: 'Monitor your grades',
                   color: Colors.red,
                   accentColor: Colors.redAccent,
-                  onTap: () {
-                    // Add your grade tracker page here
-                  },
+                  onTap: _showComingSoonSnack,
+                  comingSoon: true,
                 ),
                 _ServiceCard(
                   icon: Icons.event_note_rounded,
@@ -264,42 +310,14 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   description: 'Important dates & deadlines',
                   color: Colors.teal,
                   accentColor: Colors.tealAccent,
-                  onTap: () {
-                    // Add your academic calendar page here
-                  },
+                  onTap: _showComingSoonSnack,
+                  comingSoon: true,
                 ),
               ]),
             ),
           ),
 
-          // Footer Section
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.only(bottom: 32),
-              child: Column(
-                children: [
-                  Divider(indent: 40, endIndent: 40),
-                  SizedBox(height: 8),
-                  Text(
-                    'University Management System',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Academic Services v1.0',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+         
         ],
       ),
     );
@@ -321,6 +339,7 @@ class _ServiceCard extends StatelessWidget {
   final Color color;
   final Color accentColor;
   final VoidCallback onTap;
+  final bool comingSoon;
 
   const _ServiceCard({
     Key? key,
@@ -330,6 +349,7 @@ class _ServiceCard extends StatelessWidget {
     required this.color,
     required this.accentColor,
     required this.onTap,
+    this.comingSoon = false,
   }) : super(key: key);
 
   @override
@@ -340,7 +360,44 @@ class _ServiceCard extends StatelessWidget {
       onTap: onTap,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
-        child: AnimatedContainer(
+        child: Stack(
+          children: [
+            if (comingSoon)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? Colors.amber[700] : Colors.amber[600],
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.hourglass_bottom_rounded, size: 14, color: Colors.white),
+                      SizedBox(width: 6),
+                      Text(
+                        'Coming soon',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
           decoration: BoxDecoration(
@@ -461,6 +518,8 @@ class _ServiceCard extends StatelessWidget {
               ),
             ),
           ),
+          ),
+          ],
         ),
       ),
     );
