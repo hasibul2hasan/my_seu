@@ -3,7 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 class MyInventoryPage extends StatefulWidget {
-  const MyInventoryPage({super.key});
+  final String scheduleAssetPath;
+
+  const MyInventoryPage({super.key, required this.scheduleAssetPath});
 
   @override
   State<MyInventoryPage> createState() => _MyInventoryPageState();
@@ -12,15 +14,24 @@ class MyInventoryPage extends StatefulWidget {
 class _MyInventoryPageState extends State<MyInventoryPage> {
   List<Map<String, dynamic>> _items = [];
   bool _loading = true;
+  Map<String, dynamic> _scheduleMap = {};
 
   @override
   void initState() {
     super.initState();
-    _loadInventory();
+    _loadAll();
+  }
+
+  Future<void> _loadAll() async {
+    setState(() => _loading = true);
+    await Future.wait([
+      _loadInventory(),
+      _loadSchedule(),
+    ]);
+    setState(() => _loading = false);
   }
 
   Future<void> _loadInventory() async {
-    setState(() => _loading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('my_courses');
@@ -40,7 +51,68 @@ class _MyInventoryPageState extends State<MyInventoryPage> {
     } catch (_) {
       _items = [];
     }
-    setState(() => _loading = false);
+  }
+
+  Future<void> _loadSchedule() async {
+    try {
+      final jsonStr = await DefaultAssetBundle.of(context).loadString(widget.scheduleAssetPath);
+      final decoded = jsonDecode(jsonStr);
+      if (decoded is List) {
+        final Map<String, dynamic> map = {};
+        final codePattern = RegExp(r'^([A-Z]{3,4}\d{3})\.(\d+)$');
+        for (final item in decoded) {
+          if (item is Map) {
+            final courseCode = item['Course Code'];
+            if (courseCode is String) {
+              final match = codePattern.firstMatch(courseCode.trim());
+              if (match != null) {
+                final base = match.group(1)!;
+                final section = match.group(2)!;
+                final key = '${base}_${section}';
+                final start = item['Start Time'];
+                final end = item['End Time'];
+                map[key] = {
+                  'date': item['Date'],
+                  'courseTitle': item['Course Title'],
+                  'faculty': item['Faculty'],
+                  'time24': _combineTime(start, end),
+                  'time12': _combineTime(_to12Hour(start), _to12Hour(end)),
+                };
+              }
+            }
+          }
+        }
+        _scheduleMap = map;
+      } else if (decoded is Map<String, dynamic>) {
+        _scheduleMap = decoded;
+      } else {
+        _scheduleMap = {};
+      }
+    } catch (_) {
+      _scheduleMap = {};
+    }
+  }
+
+  String _combineTime(dynamic start, dynamic end) {
+    final s = start?.toString().trim();
+    final e = end?.toString().trim();
+    if (s == null || s.isEmpty) return e ?? '';
+    if (e == null || e.isEmpty) return s;
+    return '$s - $e';
+  }
+
+  String? _to12Hour(dynamic time) {
+    if (time == null) return null;
+    final t = time.toString().trim();
+    if (t.isEmpty) return null;
+    final parts = t.split(':');
+    if (parts.isEmpty) return t;
+    int hour = int.tryParse(parts[0]) ?? 0;
+    final minutes = parts.length > 1 ? parts[1].padLeft(2, '0') : '00';
+    final suffix = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12;
+    if (hour == 0) hour = 12;
+    return '$hour:$minutes $suffix';
   }
 
   Future<void> _removeItem(int index) async {
@@ -67,10 +139,12 @@ class _MyInventoryPageState extends State<MyInventoryPage> {
                     final item = _items[index];
                     final course = item['course'] ?? item['Course Code'] ?? '';
                     final section = item['section'] ?? item['Section'] ?? '';
-                    final title = item['courseTitle'] ?? item['Course Title'] ?? '';
-                    final faculty = item['faculty'] ?? item['Faculty'] ?? '';
-                    final date = item['date'] ?? item['Date'] ?? '';
-                    final time12 = item['time12'] ?? '';
+                    final key = '${course}_${section}';
+                    final sched = _scheduleMap[key] ?? {};
+                    final title = sched['courseTitle'] ?? '';
+                    final faculty = sched['faculty'] ?? '';
+                    final date = sched['date'] ?? '';
+                    final time12 = sched['time12'] ?? '';
                     return ListTile(
                       title: Text('$course${section != '' ? '.$section' : ''}'),
                       subtitle: Text([

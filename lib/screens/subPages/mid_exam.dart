@@ -543,7 +543,11 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                           color: Colors.green,
                           onTap: () async {
                             await Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const MyInventoryPage()),
+                              MaterialPageRoute(
+                                builder: (_) => MyInventoryPage(
+                                  scheduleAssetPath: widget.scheduleAssetPath,
+                                ),
+                              ),
                             );
                             _loadInventory();
                           },
