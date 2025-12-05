@@ -51,10 +51,11 @@ dev_dependencies:
     sdk: flutter
   flutter_launcher_icons: ^0.14.1
   flutter_lints: ^4.0.0
+  image: ^4.1.3
 
 flutter_launcher_icons:
-  android: "launcher_icon"
-  iso: true
+  android: true
+  ios: true
   image_path: "assets/AppIcon/MYSEU.png"
   adaptive_icon_background: "#ffffff"
   adaptive_icon_foreground: "assets/AppIcon/MYSEU.png"
