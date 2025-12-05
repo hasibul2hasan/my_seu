@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <application
-        android:label="mySeu"
+        android:label="MySeu"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
 
