@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:my_seu/screens/subPages/mid_exam.dart';
 
 class ServicesTab extends StatefulWidget {
-  const ServicesTab({Key? key}) : super(key: key);
+  const ServicesTab({super.key});
 
   @override
   _ServicesTabState createState() => _ServicesTabState();
@@ -32,11 +32,11 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
               child: const Icon(Icons.auto_awesome_rounded, color: Colors.blue, size: 20),
             ),
             const SizedBox(width: 12),
-            Expanded(
+            const Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Coming soon',
                     style: TextStyle(fontWeight: FontWeight.w700, color: Colors.black),
@@ -261,7 +261,7 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   description: 'Find your midterm dates & times',
                   color: Colors.blue,
                   accentColor: Colors.blueAccent,
-                  onTap: () => _navigateToPage(ExamScheduleExtractorPage(
+                  onTap: () => _navigateToPage(const ExamScheduleExtractorPage(
                     scheduleAssetPath: 'assets/data/mid_exam.json',
                     pageTitle: 'Midterm Schedule Finder',
                   )),
@@ -272,7 +272,7 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   description: 'Final exam dates & locations',
                   color: Colors.purple,
                   accentColor: Colors.purpleAccent,
-                  onTap: () => _navigateToPage(ExamScheduleExtractorPage(
+                  onTap: () => _navigateToPage(const ExamScheduleExtractorPage(
                     scheduleAssetPath: 'assets/data/final_exam.json',
                     pageTitle: 'Final Exam Schedule Finder',
                   )),
@@ -342,7 +342,7 @@ class _ServiceCard extends StatelessWidget {
   final bool comingSoon;
 
   const _ServiceCard({
-    Key? key,
+    super.key,
     required this.icon,
     required this.label,
     required this.description,
@@ -350,7 +350,7 @@ class _ServiceCard extends StatelessWidget {
     required this.accentColor,
     required this.onTap,
     this.comingSoon = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -379,9 +379,9 @@ class _ServiceCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Row(
+                  child: const Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
+                    children: [
                       Icon(Icons.hourglass_bottom_rounded, size: 14, color: Colors.white),
                       SizedBox(width: 6),
                       Text(

@@ -4,7 +4,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UmsTab extends StatefulWidget {
-  const UmsTab({Key? key}) : super(key: key);
+  const UmsTab({super.key});
 
   @override
   _UmsTabState createState() => _UmsTabState();
@@ -97,8 +97,8 @@ class _UmsTabState extends State<UmsTab> with AutomaticKeepAliveClientMixin {
             right: 16,
             child: FloatingActionButton(
               onPressed: _reloadWebView,
-              child: const Icon(Icons.refresh, color: Colors.white),
               backgroundColor: const Color.fromRGBO(15, 23, 42, 1),
+              child: const Icon(Icons.refresh, color: Colors.white),
             ),
           ),
         ],

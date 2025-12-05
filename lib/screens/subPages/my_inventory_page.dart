@@ -68,7 +68,7 @@ class _MyInventoryPageState extends State<MyInventoryPage> {
               if (match != null) {
                 final base = match.group(1)!;
                 final section = match.group(2)!;
-                final key = '${base}_${section}';
+                final key = '${base}_$section';
                 final start = item['Start Time'];
                 final end = item['End Time'];
                 map[key] = {
@@ -139,7 +139,7 @@ class _MyInventoryPageState extends State<MyInventoryPage> {
                     final item = _items[index];
                     final course = item['course'] ?? item['Course Code'] ?? '';
                     final section = item['section'] ?? item['Section'] ?? '';
-                    final key = '${course}_${section}';
+                    final key = '${course}_$section';
                     final sched = _scheduleMap[key] ?? {};
                     final title = sched['courseTitle'] ?? '';
                     final faculty = sched['faculty'] ?? '';

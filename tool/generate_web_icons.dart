@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:image/image.dart' as img;
 
 void main() {
-  final sourcePath = 'assets/AppIcon/MYSEU.png';
+  const sourcePath = 'assets/AppIcon/MYSEU.png';
   final outDir = Directory('web/icons');
   if (!outDir.existsSync()) {
     outDir.createSync(recursive: true);
@@ -10,7 +10,7 @@ void main() {
 
   final file = File(sourcePath);
   if (!file.existsSync()) {
-    stderr.writeln('Source icon not found at ' + sourcePath);
+    stderr.writeln('Source icon not found at $sourcePath');
     exit(1);
   }
 

@@ -7,7 +7,7 @@ import 'dart:io' show Platform;
 import 'package:url_launcher/url_launcher.dart';
 
 class MapTab extends StatefulWidget {
-  const MapTab({Key? key}) : super(key: key);
+  const MapTab({super.key});
 
   @override
   _MapTabState createState() => _MapTabState();
@@ -194,8 +194,8 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
             right: 16,
             child: FloatingActionButton(
               onPressed: _reloadWebView,
-              child: const Icon(Icons.refresh, color: Colors.white),
               backgroundColor: const Color.fromARGB(255, 0, 150, 136),
+              child: const Icon(Icons.refresh, color: Colors.white),
             ),
           ),
         ],

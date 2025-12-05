@@ -19,10 +19,10 @@ class ExamScheduleExtractorPage extends StatefulWidget {
   final String pageTitle;
 
   const ExamScheduleExtractorPage({
-    Key? key,
+    super.key,
     this.scheduleAssetPath = "assets/data/exam_schedule.json",
     this.pageTitle = "Exam Schedule Finder",
-  }) : super(key: key);
+  });
 
   @override
   _ExamScheduleExtractorPageState createState() =>
@@ -42,7 +42,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
   Timer? _searchDebounce;
   
   // UI state
-  bool _isManualSearchExpanded = false;
+  final bool _isManualSearchExpanded = false;
   final ScrollController _scrollController = ScrollController();
   final Uri _webDownloadUri = Uri.parse('https://myseu.app');
   late final TapGestureRecognizer _linkRecognizer;
@@ -209,9 +209,9 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
 
         final keysToCheck = <String>[];
         if (section != null) {
-          keysToCheck.add('${base}_${section}');
+          keysToCheck.add('${base}_$section');
         } else {
-          keysToCheck.addAll(schedule.keys.where((k) => k.startsWith(base + '_')));
+          keysToCheck.addAll(schedule.keys.where((k) => k.startsWith('${base}_')));
         }
         
         for (final key in keysToCheck) {
@@ -352,7 +352,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
           final num = (dotMatch.group(3) ?? '');
           final sec = (dotMatch.group(4) ?? '');
           final normalizedCourse = '$dept$num';
-          final key = '${normalizedCourse}_${sec}';
+          final key = '${normalizedCourse}_$sec';
           if (schedule.containsKey(key)) {
             results.add({
               'course': normalizedCourse,
@@ -380,7 +380,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
           }
 
           final possible = schedule.keys
-              .where((k) => k.startsWith(normalizedCourse + '_'))
+              .where((k) => k.startsWith('${normalizedCourse}_'))
               .toList();
           for (final key in possible) {
             if (!seenKeys.contains(key)) {
@@ -448,7 +448,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
               if (match != null) {
                 final base = match.group(1)!; // e.g. CSE263
                 final section = match.group(2)!; // e.g. 12
-                final key = '${base}_${section}';
+                final key = '${base}_$section';
                 final start = item['Start Time'];
                 final end = item['End Time'];
                 final time24 = _combineTime(start, end);

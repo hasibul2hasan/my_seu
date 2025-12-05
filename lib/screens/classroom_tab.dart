@@ -4,7 +4,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ClassroomTab extends StatefulWidget {
-  const ClassroomTab({Key? key}) : super(key: key);
+  const ClassroomTab({super.key});
 
   @override
   _ClassroomTabState createState() => _ClassroomTabState();
@@ -85,10 +85,10 @@ class _ClassroomTabState extends State<ClassroomTab>
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
                 },
                 borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
+                child: const Padding(
+                  padding: EdgeInsets.all(8.0),
                   // Using FlutterLogo as a safe placeholder if asset logo name is unknown
-                  child: const FlutterLogo(size: 64),
+                  child: FlutterLogo(size: 64),
                 ),
               ),
               const SizedBox(height: 8),
@@ -121,8 +121,8 @@ class _ClassroomTabState extends State<ClassroomTab>
             right: 16,
             child: FloatingActionButton(
               onPressed: _reloadWebView,
-              child: const Icon(Icons.refresh, color: Colors.white),
               backgroundColor: const Color.fromARGB(255, 66, 133, 244),
+              child: const Icon(Icons.refresh, color: Colors.white),
             ),
           ),
         ],
