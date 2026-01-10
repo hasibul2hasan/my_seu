@@ -272,10 +272,8 @@ class _ServicesTabState extends State<ServicesTab> with AutomaticKeepAliveClient
                   description: 'Final exam dates & locations',
                   color: Colors.purple,
                   accentColor: Colors.purpleAccent,
-                  onTap: () => _navigateToPage(const ExamScheduleExtractorPage(
-                    scheduleAssetPath: 'assets/data/final_exam.json',
-                    pageTitle: 'Final Exam Schedule Finder',
-                  )),
+                  onTap: _showComingSoonSnack,
+                  comingSoon: true,
                 ),
                 _ServiceCard(
                   icon: Icons.schedule_rounded,
