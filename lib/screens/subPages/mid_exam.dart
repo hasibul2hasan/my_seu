@@ -549,15 +549,11 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                         child: _ActionCard(
                           icon: Icons.camera_alt_rounded,
                           title: "Upload Screenshot",
-                          subtitle: kIsWeb
-                              ? "Unavailable on web — use the mobile app"
-                              : "Extract from registration",
+                          subtitle: "Extract from registration",
                           color: Colors.blue,
-                          onTap: kIsWeb
-                              ? _openWebsite
-                              : (_scheduleUnavailable ? null : pickImage),
-                          disabled: _scheduleUnavailable || kIsWeb,
-                          allowTapWhenDisabled: kIsWeb,
+                          onTap: _scheduleUnavailable ? null : pickImage,
+                          disabled: _scheduleUnavailable,
+                          allowTapWhenDisabled: false,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -634,7 +630,7 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
             ),
           ),
 
-          // Web-only notice
+          // Web OCR notice
           if (kIsWeb)
             Container(
               color: Colors.white,
@@ -645,18 +641,9 @@ class _ExamScheduleExtractorPageState extends State<ExamScheduleExtractorPage> {
                   Icon(Icons.info_outline_rounded, color: Colors.blue[700], size: 20),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(color: Colors.grey[800], fontSize: 12),
-                        children: [
-                          const TextSpan(text: 'Screenshot upload is not available on web. '),
-                          TextSpan(
-                            text: 'Download the app from website to search via screenshot.',
-                            style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.w600),
-                            recognizer: _linkRecognizer,
-                          ),
-                        ],
-                      ),
+                    child: Text(
+                      'OCR runs in the browser via Tesseract.js — first scan may take a moment to load.',
+                      style: TextStyle(color: Colors.grey[700], fontSize: 12),
                     ),
                   ),
                 ],

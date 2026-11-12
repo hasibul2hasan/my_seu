@@ -1,10 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:permission_handler/permission_handler.dart'; // For Android runtime permissions
-import 'package:geolocator/geolocator.dart'; // For iOS location permissions
+import 'package:permission_handler/permission_handler.dart';
+import 'package:geolocator/geolocator.dart';
 import 'dart:io' show Platform;
-import 'package:url_launcher/url_launcher.dart';
+
+import '../services/web_iframe_stub.dart'
+    if (dart.library.html) '../services/web_iframe_web.dart';
+import '../app_config.dart';
+
+// SEU campus coordinates
+const _kSeuLat = 23.7693568;
+const _kSeuLng = 90.4048154;
+
+// The Maps Embed API URL is explicitly designed for iframes — no SAMEORIGIN block
+String _embedUrl({double? userLat, double? userLng}) {
+  const key = AppConfig.mapsApiKey;
+  if (userLat != null && userLng != null) {
+    // Show directions from user location to SEU
+    return 'https://www.google.com/maps/embed/v1/directions'
+        '?key=$key'
+        '&origin=$userLat,$userLng'
+        '&destination=$_kSeuLat,$_kSeuLng'
+        '&mode=driving';
+  }
+  // Show SEU campus pinned on map
+  return 'https://www.google.com/maps/embed/v1/place'
+      '?key=$key'
+      '&q=Southeast+University,Dhaka'
+      '&center=$_kSeuLat,$_kSeuLng'
+      '&zoom=17';
+}
+
+const _kNativeUrl =
+    'https://www.google.com/maps/place/Southeast+University,+251%2FA+Tejgaon+I%2FA,+Dhaka+1208';
 
 class MapTab extends StatefulWidget {
   const MapTab({super.key});
@@ -14,11 +43,15 @@ class MapTab extends StatefulWidget {
 }
 
 class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
+  // ── Web state ──────────────────────────────────────────────────────────────
+  String _webViewType = 'map-iframe-campus'; // updated when directions load
+  String _currentEmbedUrl = _embedUrl();
+  bool _webLocLoading = false;
+
+  // ── Native state ───────────────────────────────────────────────────────────
   WebViewController? _webViewController;
-  String initialUrl =
-      'https://www.google.com/maps/place/Southeast+University,+251%2FA+Tejgaon+I%2FA,+Dhaka+1208';
-  bool isLoading = true; // For the loading indicator
-  bool hasError = false; // For displaying an error message
+  bool isLoading = true;
+  bool hasError = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -26,133 +59,123 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
-    if (!kIsWeb) {
-      _initializeWebView();
-      _requestLocationPermission();
+    if (kIsWeb) {
+      registerIframeView(_webViewType, _currentEmbedUrl);
+      return;
     }
+    _initNativeWebView(_kNativeUrl);
+    _requestLocationPermission();
   }
 
-  void _initializeWebView() {
+  // ── Native WebView ─────────────────────────────────────────────────────────
+  void _initNativeWebView(String url) {
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (String url) {
-            setState(() {
-              isLoading = true;
-              hasError = false;
-            });
-          },
-          onPageFinished: (String url) {
-            setState(() {
-              isLoading = false;
-            });
-            _webViewController?.runJavaScript(
-              "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');",
-            );
-          },
-          onWebResourceError: (error) {
-            setState(() {
-              isLoading = false;
-              hasError = true;
-            });
-            print("WebView resource error: ${error.description}");
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(initialUrl));
+      ..setNavigationDelegate(NavigationDelegate(
+        onPageStarted: (_) => setState(() { isLoading = true; hasError = false; }),
+        onPageFinished: (_) {
+          setState(() => isLoading = false);
+          _webViewController?.runJavaScript(
+            "document.querySelector('meta[name=viewport]')?.setAttribute('content',"
+            "'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');",
+          );
+        },
+        onWebResourceError: (_) => setState(() { isLoading = false; hasError = true; }),
+      ))
+      ..loadRequest(Uri.parse(url));
   }
 
   Future<void> _requestLocationPermission() async {
     if (Platform.isAndroid) {
       final status = await Permission.location.request();
-      if (status.isDenied) {
-        print("Location permission denied on Android");
-      } else if (status.isPermanentlyDenied) {
-        openAppSettings();
-      } else if (status.isGranted) {
-        _getCurrentLocation();
-      }
+      if (status.isGranted) _getCurrentLocationNative();
     } else if (Platform.isIOS) {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        _getCurrentLocation();
-      } else {
-        print("Location permission denied on iOS");
+      if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
+        _getCurrentLocationNative();
       }
     }
   }
 
-  Future<void> _getCurrentLocation() async {
+  Future<void> _getCurrentLocationNative() async {
     try {
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      String currentLocationUrl =
-          'https://www.google.com/maps/dir/?api=1&origin=${position.latitude},${position.longitude}&destination=23.7693568,90.4048154'; // Example destination coordinates
-      _webViewController?.loadRequest(Uri.parse(currentLocationUrl));
-    } catch (e) {
-      print("Error getting current location: $e");
-    }
+      const settings = LocationSettings(accuracy: LocationAccuracy.high);
+      final pos = await Geolocator.getCurrentPosition(locationSettings: settings);
+      final dirUrl =
+          'https://www.google.com/maps/dir/?api=1'
+          '&origin=${pos.latitude},${pos.longitude}'
+          '&destination=$_kSeuLat,$_kSeuLng';
+      _webViewController?.loadRequest(Uri.parse(dirUrl));
+    } catch (_) {}
   }
 
-  Future<void> _reloadWebView() async {
-    if (_webViewController != null) {
-      setState(() {
-        isLoading = true; // Show loading indicator when reloading
-        hasError = false; // Reset error state
-      });
-      await _webViewController!.reload();
-    } else {
-      print("WebViewController is not initialized");
-    }
+  Future<void> _reloadNative() async {
+    setState(() { isLoading = true; hasError = false; });
+    await _webViewController?.reload();
   }
 
   Future<bool> _onWillPop() async {
     if (await _webViewController?.canGoBack() ?? false) {
       _webViewController?.goBack();
-      return false; // Prevent the app from closing.
+      return false;
     }
-    return true; // Allow the app to close if there's no back history.
+    return true;
   }
 
+  // ── Web: get location via browser geolocation ──────────────────────────────
+  Future<void> _getWebLocation() async {
+    setState(() => _webLocLoading = true);
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      final newUrl = _embedUrl(userLat: pos.latitude, userLng: pos.longitude);
+      const newViewType = 'map-iframe-directions';
+      registerIframeView(newViewType, newUrl);
+      setState(() {
+        _webViewType = newViewType;
+        _currentEmbedUrl = newUrl;
+        _webLocLoading = false;
+      });
+    } catch (_) {
+      setState(() => _webLocLoading = false);
+    }
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
-    // On web, show a placeholder page instead of WebView
-    if (kIsWeb) {
+    if (kIsWeb) return _buildWebMap();
+    return _buildNativeMap();
+  }
+
+  Widget _buildWebMap() {
+    final hasKey = AppConfig.hasMapsKey;
+
+    if (!hasKey) {
+      // Show a clear call-to-action when key isn't set yet
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(Icons.map_outlined, size: 64, color: Colors.teal[300]),
+              const SizedBox(height: 20),
               const Text(
-                'Download the app to use this feature',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: () async {
-                  final uri = Uri.parse(initialUrl);
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: const FlutterLogo(size: 64),
+                'Maps API key not configured',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
-              TextButton(
-                onPressed: () async {
-                  final uri = Uri.parse(initialUrl);
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                },
-                child: const Text('Open in browser'),
+              Text(
+                'Add your Google Maps Embed API key to map_tab.dart\n(_kMapsApiKey constant)',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
             ],
           ),
@@ -160,16 +183,40 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
       );
     }
 
+    return Stack(
+      children: [
+        // The iframe map
+        buildIframeView(_webViewType, _currentEmbedUrl),
+
+        // "Get directions" FAB
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: _webLocLoading
+              ? const CircularProgressIndicator()
+              : FloatingActionButton.extended(
+                  onPressed: _getWebLocation,
+                  backgroundColor: const Color.fromARGB(255, 0, 150, 136),
+                  icon: const Icon(Icons.my_location, color: Colors.white),
+                  label: const Text(
+                    'Directions to SEU',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNativeMap() {
     return WillPopScope(
-      onWillPop: _onWillPop, // Ensure onWillPop is correctly set here
+      onWillPop: _onWillPop,
       child: Stack(
         children: [
           if (_webViewController != null)
             WebViewWidget(controller: _webViewController!),
           if (isLoading)
-            const Center(
-              child: CircularProgressIndicator(), // Loading indicator
-            ),
+            const Center(child: CircularProgressIndicator()),
           if (hasError)
             Center(
               child: Column(
@@ -178,13 +225,13 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
                   const Icon(Icons.error, color: Colors.red, size: 64),
                   const SizedBox(height: 16),
                   const Text(
-                    "Failed to load map.",
+                    'Failed to load map.',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   ElevatedButton(
-                    onPressed: _reloadWebView,
-                    child: const Text("Retry"),
+                    onPressed: _reloadNative,
+                    child: const Text('Retry'),
                   ),
                 ],
               ),
@@ -193,7 +240,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
             bottom: 16,
             right: 16,
             child: FloatingActionButton(
-              onPressed: _reloadWebView,
+              onPressed: _reloadNative,
               backgroundColor: const Color.fromARGB(255, 0, 150, 136),
               child: const Icon(Icons.refresh, color: Colors.white),
             ),

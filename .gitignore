@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ─── Secrets & Environment Variables ────────────────────────────────────────
+# Never commit .env — copy .env.example and fill in your real values locally.
+.env
+*.env
+!.env.example
+
+# Local project memory / agent documentation
+PROJECT_MEMORY.md
+
+

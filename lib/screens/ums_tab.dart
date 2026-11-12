@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
+
+import '../services/web_iframe_stub.dart'
+    if (dart.library.html) '../services/web_iframe_web.dart';
+import '../app_config.dart';
 
 class UmsTab extends StatefulWidget {
   const UmsTab({super.key});
@@ -11,8 +14,11 @@ class UmsTab extends StatefulWidget {
 }
 
 class _UmsTabState extends State<UmsTab> with AutomaticKeepAliveClientMixin {
+  static const _viewType = 'ums-iframe';
+  // Uses the Cloudflare Worker proxy URL when configured, falls back to direct URL
+  static String get _url => AppConfig.umsProxyUrl;
+
   WebViewController? _webViewController;
-  String initialUrl = 'https://ums.seu.edu.bd/';
 
   @override
   bool get wantKeepAlive => true;
@@ -20,19 +26,23 @@ class _UmsTabState extends State<UmsTab> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      registerIframeView(_viewType, _url);
+      return;
+    }
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageFinished: (String url) {
+          onPageFinished: (_) {
             _webViewController?.runJavaScript(
-              "document.querySelector('meta[name=viewport]').setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');",
+              "document.querySelector('meta[name=viewport]')?.setAttribute('content',"
+              "'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');",
             );
           },
         ),
       )
-      ..loadRequest(Uri.parse(initialUrl));
+      ..loadRequest(Uri.parse(_url));
   }
 
   Future<void> _reloadWebView() async {
@@ -42,50 +52,21 @@ class _UmsTabState extends State<UmsTab> with AutomaticKeepAliveClientMixin {
   Future<bool> _onWillPop() async {
     if (_webViewController != null && await _webViewController!.canGoBack()) {
       _webViewController!.goBack();
-      return false; // Prevent the app from closing.
+      return false;
     }
-    return true; // Allow the app to close if there's no back history.
+    return true;
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
 
+    // ── Web: render an iframe ──────────────────────────────────────────────
     if (kIsWeb) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Download the app to use this feature',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: () async {
-                  final uri = Uri.parse(initialUrl);
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: const FlutterLogo(size: 64),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () async {
-                  final uri = Uri.parse(initialUrl);
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                },
-                child: const Text('Open in browser'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return buildIframeView(_viewType, _url);
     }
 
+    // ── Native mobile / desktop: render WebViewWidget ─────────────────────
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Stack(
