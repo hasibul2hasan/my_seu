@@ -173,7 +173,7 @@ class _MapTabState extends State<MapTab> with AutomaticKeepAliveClientMixin {
               ),
               const SizedBox(height: 8),
               Text(
-                'Add your Google Maps Embed API key to map_tab.dart\n(_kMapsApiKey constant)',
+                'Add your MAPS_EMBED_API_KEY to .env and start the app with:\n./run.sh -d chrome',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey[600], fontSize: 14),
               ),
