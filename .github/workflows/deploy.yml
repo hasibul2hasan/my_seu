@@ -35,7 +35,12 @@ jobs:
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
+        env:
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiKey: ${{ secrets.CLOUDFLARE_API_KEY }}
+          apiEmail: ${{ secrets.CLOUDFLARE_EMAIL }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy build/web --project-name=my-seu
