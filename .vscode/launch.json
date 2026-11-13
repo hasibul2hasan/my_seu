@@ -16,7 +16,7 @@
       "args": [
         "-d",
         "chrome",
-        "--web-port=5000",
+        "--web-port=7357",
         "--web-hostname=localhost",
         "--dart-define-from-file=.env"
       ]

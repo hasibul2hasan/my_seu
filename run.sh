@@ -2,7 +2,7 @@
 # run.sh — Loads .env and runs the app with dart-defines injected.
 # Usage:
 #   ./run.sh                    # run on default device
-#   ./run.sh -d chrome          # run on Chrome (web) with fixed port 5000
+#   ./run.sh -d chrome          # run on Chrome (web) with fixed port 7357
 #   ./run.sh -d macos           # run on macOS
 set -euo pipefail
 
@@ -26,7 +26,7 @@ done < "$ENV_FILE"
 
 WEB_ARGS=()
 if [[ " $* " =~ " -d chrome " ]]; then
-  WEB_ARGS=(--web-port=5000 --web-hostname=localhost)
+  WEB_ARGS=(--web-port=7357 --web-hostname=localhost)
 fi
 
 echo "▶  flutter run $DEFINES ${WEB_ARGS[*]} $*"
