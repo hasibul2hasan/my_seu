@@ -32,3 +32,4 @@ Widget buildGoogleSignInButton({
     ),
   );
 }
+
