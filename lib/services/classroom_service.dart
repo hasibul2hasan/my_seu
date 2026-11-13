@@ -219,27 +219,55 @@ class ClassroomService {
 
   Future<List<ClassroomCourse>> fetchCourses({bool allowPrompt = false}) async {
     final headers = await _getAuthHeaders(allowPrompt: allowPrompt);
-    // Query without restricting studentId/courseStates to get all classes the user belongs to
-    final uri = Uri.parse(
-      'https://classroom.googleapis.com/v1/courses',
-    );
-    final response = await http.get(uri, headers: headers);
-    debugPrint('Google Classroom API status: ${response.statusCode}');
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body) as Map<String, dynamic>;
-      final list = data['courses'] as List<dynamic>? ?? [];
-      return list.map((c) => ClassroomCourse.fromJson(c as Map<String, dynamic>)).toList();
-    } else {
-      String errorMsg = response.body;
+    final Map<String, ClassroomCourse> coursesMap = {};
+    int? firstErrorCode;
+    String? firstErrorMessage;
+
+    // Google Classroom has multiple list variants depending on user role (student, teacher, or domain-wide)
+    final endpoints = [
+      'https://classroom.googleapis.com/v1/courses?studentId=me',
+      'https://classroom.googleapis.com/v1/courses?teacherId=me',
+      'https://classroom.googleapis.com/v1/courses',
+    ];
+
+    for (final url in endpoints) {
       try {
-        final errObj = json.decode(response.body);
-        if (errObj['error']?['message'] != null) {
-          errorMsg = errObj['error']['message'];
+        final uri = Uri.parse(url);
+        final response = await http.get(uri, headers: headers);
+        debugPrint('Classroom API ($url) status: ${response.statusCode}');
+
+        if (response.statusCode == 200) {
+          final data = json.decode(response.body) as Map<String, dynamic>;
+          final list = data['courses'] as List<dynamic>? ?? [];
+          for (final c in list) {
+            final course = ClassroomCourse.fromJson(c as Map<String, dynamic>);
+            if (course.id.isNotEmpty) {
+              coursesMap[course.id] = course;
+            }
+          }
+        } else if (response.statusCode != 404) {
+          if (firstErrorCode == null) {
+            firstErrorCode = response.statusCode;
+            try {
+              final errObj = json.decode(response.body);
+              firstErrorMessage = errObj['error']?['message'] ?? response.body;
+            } catch (_) {
+              firstErrorMessage = response.body;
+            }
+          }
         }
-      } catch (_) {}
-      throw Exception('Google Classroom Error (${response.statusCode}): $errorMsg');
+      } catch (e) {
+        debugPrint('Error fetching courses from $url: $e');
+      }
     }
+
+    // If no courses were found and an authorization or server error occurred, throw it
+    if (coursesMap.isEmpty && firstErrorCode != null && (firstErrorCode == 401 || firstErrorCode == 403)) {
+      throw Exception('Google Classroom Error ($firstErrorCode): $firstErrorMessage');
+    }
+
+    return coursesMap.values.toList();
   }
 
   Future<List<ClassroomCourseWork>> fetchCourseWork(String courseId) async {

@@ -606,40 +606,76 @@ class _ClassroomTabState extends State<ClassroomTab>
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.school_outlined, size: 58, color: Colors.grey[400]),
-                                const SizedBox(height: 16),
-                                const Text(
-                                  'No Classes Found',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                Container(
+                                  width: 72,
+                                  height: 72,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.school_outlined, size: 40, color: Colors.grey[600]),
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: 18),
+                                const Text(
+                                  'no available course',
+                                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
                                 Text(
-                                  'No Google Classroom courses were found for:\n${user?.email ?? ""}\n\nAre your courses under your university email (e.g. @seu.edu.bd)?',
+                                  'No Google Classroom courses were found for:\n${user?.email ?? ""}',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(color: Colors.grey[700], fontSize: 13, height: 1.4),
                                 ),
-                                const SizedBox(height: 22),
-                                SizedBox(
-                                  width: double.infinity,
-                                  height: 46,
-                                  child: FilledButton.icon(
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: const Color(0xFF1E8238),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                    ),
-                                    onPressed: _handleSwitchAccount,
-                                    icon: const Icon(Icons.switch_account_outlined),
-                                    label: const Text('Sign in with University Account'),
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1E8238).withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
+                                  child: Text(
+                                    'If your university classes are linked to a student account (e.g. @seu.edu.bd), tap Switch Account below.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(fontSize: 12, color: Colors.green[900], height: 1.3),
+                                  ),
+                                ),
+                                const SizedBox(height: 22),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 44,
+                                        child: OutlinedButton.icon(
+                                          onPressed: _loadCourses,
+                                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                                          label: const Text('Refresh'),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 44,
+                                        child: FilledButton.icon(
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: const Color(0xFF1E8238),
+                                          ),
+                                          onPressed: _handleSwitchAccount,
+                                          icon: const Icon(Icons.switch_account_outlined, size: 18),
+                                          label: const Text('Switch Account'),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 10),
                                 SizedBox(
                                   width: double.infinity,
-                                  height: 42,
-                                  child: OutlinedButton.icon(
+                                  height: 40,
+                                  child: TextButton.icon(
                                     onPressed: () => _openUrl('https://classroom.google.com'),
                                     icon: const Icon(Icons.open_in_new, size: 16),
-                                    label: const Text('Verify on Classroom Web'),
+                                    label: const Text('Open classroom.google.com'),
                                   ),
                                 ),
                               ],
