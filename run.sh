@@ -2,7 +2,7 @@
 # run.sh — Loads .env and runs the app with dart-defines injected.
 # Usage:
 #   ./run.sh                    # run on default device
-#   ./run.sh -d chrome          # run on Chrome (web)
+#   ./run.sh -d chrome          # run on Chrome (web) with fixed port 5000
 #   ./run.sh -d macos           # run on macOS
 set -euo pipefail
 
@@ -24,7 +24,11 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   DEFINES="$DEFINES --dart-define=$key=$val"
 done < "$ENV_FILE"
 
-echo "▶  flutter run $DEFINES $*"
-# shellcheck disable=SC2086
-flutter run $DEFINES "$@"
+WEB_ARGS=""
+if [[ " $* " =~ " -d chrome " ]]; then
+  WEB_ARGS="--web-port=5000 --web-hostname=localhost"
+fi
 
+echo "▶  flutter run $DEFINES $WEB_ARGS $*"
+# shellcheck disable=SC2086
+flutter run $DEFINES $WEB_ARGS "$@"
