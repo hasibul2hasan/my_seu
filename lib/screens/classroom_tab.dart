@@ -678,6 +678,14 @@ class _ClassroomTabState extends State<ClassroomTab>
                                     label: const Text('Open classroom.google.com'),
                                   ),
                                 ),
+                                if (ClassroomService.instance.lastSyncSummary.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'API Status: ${ClassroomService.instance.lastSyncSummary}',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ],
                             ),
                           ),

@@ -121,6 +121,7 @@ class ClassroomService {
 
   bool _initialized = false;
   GoogleSignInAccount? _currentUser;
+  String lastSyncSummary = '';
   void Function(GoogleSignInAccount?)? onAuthChanged;
 
   GoogleSignInAccount? get currentUser => _currentUser;
@@ -190,8 +191,12 @@ class ClassroomService {
   Future<void> signOut() async {
     try {
       await GoogleSignIn.instance.signOut();
+      await GoogleSignIn.instance.disconnect();
+    } catch (e) {
+      debugPrint('signOut error: $e');
     } finally {
       _currentUser = null;
+      lastSyncSummary = '';
       onAuthChanged?.call(null);
     }
   }
@@ -214,7 +219,16 @@ class ClassroomService {
         'Classroom access permissions required. Click below to grant access.',
       );
     }
-    return headers;
+
+    // Strip X-Goog-AuthUser so Google strictly resolves by the OAuth Bearer token
+    // rather than the browser's default 0th profile
+    final sanitizedHeaders = <String, String>{
+      for (final entry in headers.entries)
+        if (entry.key.toLowerCase() != 'x-goog-authuser') entry.key: entry.value,
+      'Accept': 'application/json',
+    };
+
+    return sanitizedHeaders;
   }
 
   Future<List<ClassroomCourse>> fetchCourses({bool allowPrompt = false}) async {
@@ -223,8 +237,9 @@ class ClassroomService {
     final Map<String, ClassroomCourse> coursesMap = {};
     int? firstErrorCode;
     String? firstErrorMessage;
+    final List<String> logEntries = [];
 
-    // Google Classroom has multiple list variants depending on user role (student, teacher, or domain-wide)
+    // Google Classroom has multiple list variants depending on user role
     final endpoints = [
       'https://classroom.googleapis.com/v1/courses?studentId=me',
       'https://classroom.googleapis.com/v1/courses?teacherId=me',
@@ -236,6 +251,7 @@ class ClassroomService {
         final uri = Uri.parse(url);
         final response = await http.get(uri, headers: headers);
         debugPrint('Classroom API ($url) status: ${response.statusCode}');
+        logEntries.add('${url.split('/').last} -> ${response.statusCode}');
 
         if (response.statusCode == 200) {
           final data = json.decode(response.body) as Map<String, dynamic>;
@@ -259,12 +275,15 @@ class ClassroomService {
         }
       } catch (e) {
         debugPrint('Error fetching courses from $url: $e');
+        logEntries.add('${url.split('/').last} -> error: $e');
       }
     }
 
-    // If no courses were found and an authorization or server error occurred, throw it
-    if (coursesMap.isEmpty && firstErrorCode != null && (firstErrorCode == 401 || firstErrorCode == 403)) {
-      throw Exception('Google Classroom Error ($firstErrorCode): $firstErrorMessage');
+    lastSyncSummary = logEntries.join(', ');
+
+    // If no courses were found and an error was encountered on any endpoint, do not swallow it
+    if (coursesMap.isEmpty && firstErrorCode != null && firstErrorCode >= 400) {
+      throw Exception('Google Classroom API Error ($firstErrorCode): $firstErrorMessage');
     }
 
     return coursesMap.values.toList();
