@@ -16,6 +16,7 @@ class _ClassroomTabState extends State<ClassroomTab>
     with AutomaticKeepAliveClientMixin {
   bool _initializing = true;
   bool _loadingCourses = false;
+  bool _needsPermission = false;
   String? _errorMessage;
   List<ClassroomCourse> _courses = [];
 
@@ -32,6 +33,7 @@ class _ClassroomTabState extends State<ClassroomTab>
         } else {
           setState(() {
             _courses = [];
+            _needsPermission = false;
             _errorMessage = null;
           });
         }
@@ -58,19 +60,32 @@ class _ClassroomTabState extends State<ClassroomTab>
     });
 
     try {
-      final courses = await ClassroomService.instance.fetchCourses();
+      final courses = await ClassroomService.instance.fetchCourses(allowPrompt: false);
       if (mounted) {
         setState(() {
           _courses = courses;
+          _needsPermission = false;
           _loadingCourses = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
-          _loadingCourses = false;
-        });
+        if (e is ClassroomPermissionRequiredException) {
+          setState(() {
+            _needsPermission = true;
+            _errorMessage = null;
+            _loadingCourses = false;
+          });
+        } else {
+          String msg = e.toString().replaceFirst('Exception: ', '');
+          if (msg.contains('Popup window closed') || msg.contains('canceled')) {
+            msg = 'The Google authorization window was closed before completion. Tap below to try again.';
+          }
+          setState(() {
+            _errorMessage = msg;
+            _loadingCourses = false;
+          });
+        }
       }
     }
   }
@@ -90,8 +105,12 @@ class _ClassroomTabState extends State<ClassroomTab>
       }
     } catch (e) {
       if (mounted) {
+        String msg = e.toString().replaceFirst('Exception: ', '');
+        if (msg.contains('Popup window closed') || msg.contains('canceled')) {
+          msg = 'Sign-in window was closed before completion. Tap to try again.';
+        }
         setState(() {
-          _errorMessage = 'Sign in failed: ${e.toString().replaceFirst("Exception: ", "")}';
+          _errorMessage = msg;
           _loadingCourses = false;
         });
       }
@@ -104,14 +123,28 @@ class _ClassroomTabState extends State<ClassroomTab>
       _errorMessage = null;
     });
 
-    final granted = await ClassroomService.instance.authorizeScopes();
-    if (granted && mounted) {
-      await _loadCourses();
-    } else if (mounted) {
-      setState(() {
-        _errorMessage = 'Permission was not granted. Please approve Classroom access to view your courses.';
-        _loadingCourses = false;
-      });
+    try {
+      final granted = await ClassroomService.instance.authorizeScopes();
+      if (granted && mounted) {
+        setState(() => _needsPermission = false);
+        await _loadCourses();
+      } else if (mounted) {
+        setState(() {
+          _errorMessage = 'Permission was not granted. Please approve Classroom access to view your courses.';
+          _loadingCourses = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        String msg = e.toString().replaceFirst('Exception: ', '');
+        if (msg.contains('Popup window closed') || msg.contains('canceled')) {
+          msg = 'Authorization window was closed. Please click "Grant Classroom Access" to allow access.';
+        }
+        setState(() {
+          _errorMessage = msg;
+          _loadingCourses = false;
+        });
+      }
     }
   }
 
@@ -139,6 +172,7 @@ class _ClassroomTabState extends State<ClassroomTab>
       if (mounted) {
         setState(() {
           _courses = [];
+          _needsPermission = false;
           _errorMessage = null;
         });
       }
@@ -274,9 +308,6 @@ class _ClassroomTabState extends State<ClassroomTab>
                       ),
                     ),
                   ],
-                  // Cross-platform sign-in button:
-                  // On Web: official GIS rendered button (compliance with Google Identity Services)
-                  // On Mobile: custom styled button calling authenticate()
                   buildGoogleSignInButton(
                     onPressed: _handleSignIn,
                     loading: _loadingCourses,
@@ -307,8 +338,6 @@ class _ClassroomTabState extends State<ClassroomTab>
 
   Widget _buildSignedInView() {
     final user = ClassroomService.instance.currentUser;
-    final isPermissionError = _errorMessage != null &&
-        (_errorMessage!.contains('permissions required') || _errorMessage!.contains('authorization'));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -378,119 +407,189 @@ class _ClassroomTabState extends State<ClassroomTab>
               ),
             ),
 
-            // Courses Header
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Enrolled Courses',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    if (!_loadingCourses && _errorMessage == null)
-                      Text(
-                        '${_courses.length} active',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Loading / Error / Empty / List State
-            if (_loadingCourses)
-              const SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Loading your enrolled courses...'),
-                    ],
-                  ),
-                ),
-              )
-            else if (_errorMessage != null)
+            // Permission Request Card (Explicit, user-gesture friendly)
+            if (_needsPermission)
               SliverFillRemaining(
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      child: Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(28),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1E8238).withValues(alpha: 0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.lock_open_rounded,
+                                  size: 34,
+                                  color: Color(0xFF1E8238),
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              const Text(
+                                'Classroom Permission Needed',
+                                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Google requires your approval to let MY SEU read your enrolled courses and coursework.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.grey[700], fontSize: 14, height: 1.4),
+                              ),
+                              const SizedBox(height: 24),
+                              if (_errorMessage != null) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: const TextStyle(color: Colors.red, fontSize: 13),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ],
+                              SizedBox(
+                                width: double.infinity,
+                                height: 48,
+                                child: FilledButton.icon(
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF1E8238),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  onPressed: _loadingCourses ? null : _handleAuthorize,
+                                  icon: _loadingCourses
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                        )
+                                      : const Icon(Icons.verified_user_outlined),
+                                  label: Text(
+                                    _loadingCourses ? 'Authorizing...' : 'Grant Classroom Access',
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            // Normal course list or loading/error
+            else ...[
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Enrolled Courses',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      if (!_loadingCourses && _errorMessage == null)
+                        Text(
+                          '${_courses.length} active',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+              if (_loadingCourses)
+                const SliverFillRemaining(
+                  child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          isPermissionError ? Icons.lock_open_rounded : Icons.error_outline,
-                          size: 54,
-                          color: isPermissionError ? const Color(0xFF1E8238) : Colors.redAccent,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _errorMessage!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: isPermissionError ? Colors.grey[800] : Colors.red,
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Loading your enrolled courses...'),
+                      ],
+                    ),
+                  ),
+                )
+              else if (_errorMessage != null)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error_outline, size: 54, color: Colors.redAccent),
+                          const SizedBox(height: 16),
+                          Text(
+                            _errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 14, color: Colors.red),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        if (isPermissionError)
-                          FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF1E8238),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                            onPressed: _handleAuthorize,
-                            icon: const Icon(Icons.verified_user_outlined),
-                            label: const Text('Grant Classroom Access'),
-                          )
-                        else
+                          const SizedBox(height: 16),
                           FilledButton.icon(
                             onPressed: _loadCourses,
                             icon: const Icon(Icons.refresh),
                             label: const Text('Try Again'),
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else if (_courses.isEmpty)
+                SliverFillRemaining(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'No active courses found',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Join a class in Google Classroom to see it here.',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                        ),
                       ],
                     ),
                   ),
-                ),
-              )
-            else if (_courses.isEmpty)
-              SliverFillRemaining(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No active courses found',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Join a class in Google Classroom to see it here.',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                      ),
-                    ],
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final course = _courses[index];
+                        return _buildCourseCard(course);
+                      },
+                      childCount: _courses.length,
+                    ),
                   ),
                 ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final course = _courses[index];
-                      return _buildCourseCard(course);
-                    },
-                    childCount: _courses.length,
-                  ),
-                ),
-              ),
+            ],
           ],
         ),
       ),

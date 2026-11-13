@@ -10,6 +10,13 @@ const List<String> kClassroomScopes = [
   'https://www.googleapis.com/auth/classroom.announcements.readonly',
 ];
 
+class ClassroomPermissionRequiredException implements Exception {
+  final String message;
+  ClassroomPermissionRequiredException([this.message = 'Classroom permission required']);
+  @override
+  String toString() => message;
+}
+
 class ClassroomCourse {
   final String id;
   final String name;
@@ -150,7 +157,7 @@ class ClassroomService {
   Future<GoogleSignInAccount?> signIn() async {
     await init();
     if (!GoogleSignIn.instance.supportsAuthenticate()) {
-      // On web, authenticate() throws UnimplementedError because GIS requires renderButton()
+      // On web, authenticate() is not supported; GIS uses renderButton()
       return null;
     }
     try {
@@ -174,7 +181,10 @@ class ClassroomService {
       return true;
     } catch (e) {
       debugPrint('authorizeScopes error: $e');
-      return false;
+      if (e is GoogleSignInException && e.code == GoogleSignInExceptionCode.canceled) {
+        throw ClassroomPermissionRequiredException('Authorization popup was closed before completing consent.');
+      }
+      rethrow;
     }
   }
 
@@ -187,28 +197,30 @@ class ClassroomService {
     }
   }
 
-  Future<Map<String, String>> _getAuthHeaders() async {
+  Future<Map<String, String>> _getAuthHeaders({bool allowPrompt = false}) async {
     final user = _currentUser;
     if (user == null) {
       throw Exception('User is not signed in to Google Classroom');
     }
 
-    // First try silent authorization
+    // Try silent authorization check first so we never spontaneously open a popup
     Map<String, String>? headers =
         await user.authorizationClient.authorizationHeaders(kClassroomScopes, promptIfNecessary: false);
 
-    // If not authorized yet, try prompting
-    headers ??=
-        await user.authorizationClient.authorizationHeaders(kClassroomScopes, promptIfNecessary: true);
+    if (headers == null && allowPrompt) {
+      headers = await user.authorizationClient.authorizationHeaders(kClassroomScopes, promptIfNecessary: true);
+    }
 
     if (headers == null || headers.isEmpty) {
-      throw Exception('Classroom permissions required. Please grant access to view your courses.');
+      throw ClassroomPermissionRequiredException(
+        'Classroom access permissions required. Click below to grant access.',
+      );
     }
     return headers;
   }
 
-  Future<List<ClassroomCourse>> fetchCourses() async {
-    final headers = await _getAuthHeaders();
+  Future<List<ClassroomCourse>> fetchCourses({bool allowPrompt = false}) async {
+    final headers = await _getAuthHeaders(allowPrompt: allowPrompt);
     final uri = Uri.parse(
       'https://classroom.googleapis.com/v1/courses?courseStates=ACTIVE&studentId=me',
     );
@@ -223,7 +235,7 @@ class ClassroomService {
   }
 
   Future<List<ClassroomCourseWork>> fetchCourseWork(String courseId) async {
-    final headers = await _getAuthHeaders();
+    final headers = await _getAuthHeaders(allowPrompt: false);
     final uri = Uri.parse(
       'https://classroom.googleapis.com/v1/courses/$courseId/courseWork?courseWorkStates=PUBLISHED',
     );
@@ -238,7 +250,7 @@ class ClassroomService {
   }
 
   Future<List<ClassroomAnnouncement>> fetchAnnouncements(String courseId) async {
-    final headers = await _getAuthHeaders();
+    final headers = await _getAuthHeaders(allowPrompt: false);
     final uri = Uri.parse(
       'https://classroom.googleapis.com/v1/courses/$courseId/announcements?announcementStates=PUBLISHED',
     );
