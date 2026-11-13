@@ -114,6 +114,7 @@ class ClassroomService {
 
   bool _initialized = false;
   GoogleSignInAccount? _currentUser;
+  void Function(GoogleSignInAccount?)? onAuthChanged;
 
   GoogleSignInAccount? get currentUser => _currentUser;
   bool get isSignedIn => _currentUser != null;
@@ -124,6 +125,17 @@ class ClassroomService {
       final clientId = AppConfig.hasClassroomClient ? AppConfig.classroomClientId : null;
       await GoogleSignIn.instance.initialize(clientId: clientId);
       _initialized = true;
+
+      // Listen for authentication events (critical for Web GIS sign-in)
+      GoogleSignIn.instance.authenticationEvents.listen((event) {
+        if (event is GoogleSignInAuthenticationEventSignIn) {
+          _currentUser = event.user;
+          onAuthChanged?.call(_currentUser);
+        } else if (event is GoogleSignInAuthenticationEventSignOut) {
+          _currentUser = null;
+          onAuthChanged?.call(null);
+        }
+      });
 
       // Try restoring an existing session
       final future = GoogleSignIn.instance.attemptLightweightAuthentication();
@@ -137,15 +149,32 @@ class ClassroomService {
 
   Future<GoogleSignInAccount?> signIn() async {
     await init();
+    if (!GoogleSignIn.instance.supportsAuthenticate()) {
+      // On web, authenticate() throws UnimplementedError because GIS requires renderButton()
+      return null;
+    }
     try {
       final account = await GoogleSignIn.instance.authenticate(
         scopeHint: kClassroomScopes,
       );
       _currentUser = account;
+      onAuthChanged?.call(account);
       return account;
     } catch (e) {
       debugPrint('ClassroomService signIn error: $e');
       rethrow;
+    }
+  }
+
+  Future<bool> authorizeScopes() async {
+    final user = _currentUser;
+    if (user == null) return false;
+    try {
+      await user.authorizationClient.authorizeScopes(kClassroomScopes);
+      return true;
+    } catch (e) {
+      debugPrint('authorizeScopes error: $e');
+      return false;
     }
   }
 
@@ -154,6 +183,7 @@ class ClassroomService {
       await GoogleSignIn.instance.signOut();
     } finally {
       _currentUser = null;
+      onAuthChanged?.call(null);
     }
   }
 
@@ -162,12 +192,17 @@ class ClassroomService {
     if (user == null) {
       throw Exception('User is not signed in to Google Classroom');
     }
-    final headers = await user.authorizationClient.authorizationHeaders(
-      kClassroomScopes,
-      promptIfNecessary: true,
-    );
+
+    // First try silent authorization
+    Map<String, String>? headers =
+        await user.authorizationClient.authorizationHeaders(kClassroomScopes, promptIfNecessary: false);
+
+    // If not authorized yet, try prompting
+    headers ??=
+        await user.authorizationClient.authorizationHeaders(kClassroomScopes, promptIfNecessary: true);
+
     if (headers == null || headers.isEmpty) {
-      throw Exception('Failed to obtain Google Classroom authorization');
+      throw Exception('Classroom permissions required. Please grant access to view your courses.');
     }
     return headers;
   }

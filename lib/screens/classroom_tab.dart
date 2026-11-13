@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../app_config.dart';
 import '../services/classroom_service.dart';
+import '../services/google_sign_in_button_stub.dart'
+    if (dart.library.html) '../services/google_sign_in_button_web.dart';
 
 class ClassroomTab extends StatefulWidget {
   const ClassroomTab({super.key});
@@ -23,6 +25,18 @@ class _ClassroomTabState extends State<ClassroomTab>
   @override
   void initState() {
     super.initState();
+    ClassroomService.instance.onAuthChanged = (user) {
+      if (mounted) {
+        if (user != null) {
+          _loadCourses();
+        } else {
+          setState(() {
+            _courses = [];
+            _errorMessage = null;
+          });
+        }
+      }
+    };
     _checkAuthAndLoad();
   }
 
@@ -81,6 +95,23 @@ class _ClassroomTabState extends State<ClassroomTab>
           _loadingCourses = false;
         });
       }
+    }
+  }
+
+  Future<void> _handleAuthorize() async {
+    setState(() {
+      _loadingCourses = true;
+      _errorMessage = null;
+    });
+
+    final granted = await ClassroomService.instance.authorizeScopes();
+    if (granted && mounted) {
+      await _loadCourses();
+    } else if (mounted) {
+      setState(() {
+        _errorMessage = 'Permission was not granted. Please approve Classroom access to view your courses.';
+        _loadingCourses = false;
+      });
     }
   }
 
@@ -243,32 +274,12 @@ class _ClassroomTabState extends State<ClassroomTab>
                       ),
                     ),
                   ],
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E8238),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: _loadingCourses ? null : _handleSignIn,
-                      icon: _loadingCourses
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.login_rounded),
-                      label: Text(
-                        _loadingCourses ? 'Connecting...' : 'Sign in with Google',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                    ),
+                  // Cross-platform sign-in button:
+                  // On Web: official GIS rendered button (compliance with Google Identity Services)
+                  // On Mobile: custom styled button calling authenticate()
+                  buildGoogleSignInButton(
+                    onPressed: _handleSignIn,
+                    loading: _loadingCourses,
                   ),
                   const SizedBox(height: 12),
                   SizedBox(
@@ -296,6 +307,8 @@ class _ClassroomTabState extends State<ClassroomTab>
 
   Widget _buildSignedInView() {
     final user = ClassroomService.instance.currentUser;
+    final isPermissionError = _errorMessage != null &&
+        (_errorMessage!.contains('permissions required') || _errorMessage!.contains('authorization'));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -376,7 +389,7 @@ class _ClassroomTabState extends State<ClassroomTab>
                       'Enrolled Courses',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                    if (!_loadingCourses)
+                    if (!_loadingCourses && _errorMessage == null)
                       Text(
                         '${_courses.length} active',
                         style: TextStyle(color: Colors.grey[600], fontSize: 13),
@@ -408,19 +421,37 @@ class _ClassroomTabState extends State<ClassroomTab>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline, size: 54, color: Colors.redAccent),
+                        Icon(
+                          isPermissionError ? Icons.lock_open_rounded : Icons.error_outline,
+                          size: 54,
+                          color: isPermissionError ? const Color(0xFF1E8238) : Colors.redAccent,
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           _errorMessage!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 14, color: Colors.red),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isPermissionError ? Colors.grey[800] : Colors.red,
+                          ),
                         ),
-                        const SizedBox(height: 16),
-                        FilledButton.icon(
-                          onPressed: _loadCourses,
-                          icon: const Icon(Icons.refresh),
-                          label: const Text('Try Again'),
-                        ),
+                        const SizedBox(height: 20),
+                        if (isPermissionError)
+                          FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF1E8238),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: _handleAuthorize,
+                            icon: const Icon(Icons.verified_user_outlined),
+                            label: const Text('Grant Classroom Access'),
+                          )
+                        else
+                          FilledButton.icon(
+                            onPressed: _loadCourses,
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Try Again'),
+                          ),
                       ],
                     ),
                   ),
@@ -477,7 +508,6 @@ class _ClassroomTabState extends State<ClassroomTab>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Accent Banner
             Container(
               height: 6,
               width: double.infinity,
@@ -629,7 +659,6 @@ class _CourseDetailsSheetState extends State<_CourseDetailsSheet> {
             length: 2,
             child: Column(
               children: [
-                // Handle bar
                 Container(
                   margin: const EdgeInsets.only(top: 12),
                   width: 44,
