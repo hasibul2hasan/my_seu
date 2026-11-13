@@ -157,7 +157,6 @@ class ClassroomService {
   Future<GoogleSignInAccount?> signIn() async {
     await init();
     if (!GoogleSignIn.instance.supportsAuthenticate()) {
-      // On web, authenticate() is not supported; GIS uses renderButton()
       return null;
     }
     try {
@@ -203,7 +202,6 @@ class ClassroomService {
       throw Exception('User is not signed in to Google Classroom');
     }
 
-    // Try silent authorization check first so we never spontaneously open a popup
     Map<String, String>? headers =
         await user.authorizationClient.authorizationHeaders(kClassroomScopes, promptIfNecessary: false);
 
@@ -221,23 +219,33 @@ class ClassroomService {
 
   Future<List<ClassroomCourse>> fetchCourses({bool allowPrompt = false}) async {
     final headers = await _getAuthHeaders(allowPrompt: allowPrompt);
+    // Query without restricting studentId/courseStates to get all classes the user belongs to
     final uri = Uri.parse(
-      'https://classroom.googleapis.com/v1/courses?courseStates=ACTIVE&studentId=me',
+      'https://classroom.googleapis.com/v1/courses',
     );
     final response = await http.get(uri, headers: headers);
+    debugPrint('Google Classroom API status: ${response.statusCode}');
+
     if (response.statusCode == 200) {
       final data = json.decode(response.body) as Map<String, dynamic>;
       final list = data['courses'] as List<dynamic>? ?? [];
       return list.map((c) => ClassroomCourse.fromJson(c as Map<String, dynamic>)).toList();
     } else {
-      throw Exception('Failed to load courses (${response.statusCode}): ${response.body}');
+      String errorMsg = response.body;
+      try {
+        final errObj = json.decode(response.body);
+        if (errObj['error']?['message'] != null) {
+          errorMsg = errObj['error']['message'];
+        }
+      } catch (_) {}
+      throw Exception('Google Classroom Error (${response.statusCode}): $errorMsg');
     }
   }
 
   Future<List<ClassroomCourseWork>> fetchCourseWork(String courseId) async {
     final headers = await _getAuthHeaders(allowPrompt: false);
     final uri = Uri.parse(
-      'https://classroom.googleapis.com/v1/courses/$courseId/courseWork?courseWorkStates=PUBLISHED',
+      'https://classroom.googleapis.com/v1/courses/$courseId/courseWork',
     );
     final response = await http.get(uri, headers: headers);
     if (response.statusCode == 200) {
@@ -245,14 +253,14 @@ class ClassroomService {
       final list = data['courseWork'] as List<dynamic>? ?? [];
       return list.map((w) => ClassroomCourseWork.fromJson(w as Map<String, dynamic>)).toList();
     } else {
-      throw Exception('Failed to load coursework (${response.statusCode}): ${response.body}');
+      throw Exception('Failed to load coursework (${response.statusCode})');
     }
   }
 
   Future<List<ClassroomAnnouncement>> fetchAnnouncements(String courseId) async {
     final headers = await _getAuthHeaders(allowPrompt: false);
     final uri = Uri.parse(
-      'https://classroom.googleapis.com/v1/courses/$courseId/announcements?announcementStates=PUBLISHED',
+      'https://classroom.googleapis.com/v1/courses/$courseId/announcements',
     );
     final response = await http.get(uri, headers: headers);
     if (response.statusCode == 200) {
@@ -260,7 +268,7 @@ class ClassroomService {
       final list = data['announcements'] as List<dynamic>? ?? [];
       return list.map((a) => ClassroomAnnouncement.fromJson(a as Map<String, dynamic>)).toList();
     } else {
-      throw Exception('Failed to load announcements (${response.statusCode}): ${response.body}');
+      throw Exception('Failed to load announcements (${response.statusCode})');
     }
   }
 }

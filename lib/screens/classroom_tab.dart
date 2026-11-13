@@ -179,6 +179,17 @@ class _ClassroomTabState extends State<ClassroomTab>
     }
   }
 
+  Future<void> _handleSwitchAccount() async {
+    await ClassroomService.instance.signOut();
+    if (mounted) {
+      setState(() {
+        _courses = [];
+        _needsPermission = false;
+        _errorMessage = null;
+      });
+    }
+  }
+
   Future<void> _openUrl(String? url) async {
     if (url == null || url.isEmpty) return;
     final uri = Uri.parse(url);
@@ -407,7 +418,7 @@ class _ClassroomTabState extends State<ClassroomTab>
               ),
             ),
 
-            // Permission Request Card (Explicit, user-gesture friendly)
+            // Permission Request Card
             if (_needsPermission)
               SliverFillRemaining(
                 child: Center(
@@ -494,7 +505,7 @@ class _ClassroomTabState extends State<ClassroomTab>
                   ),
                 ),
               )
-            // Normal course list or loading/error
+            // Normal course list or loading/error/empty
             else ...[
               SliverToBoxAdapter(
                 child: Padding(
@@ -508,7 +519,7 @@ class _ClassroomTabState extends State<ClassroomTab>
                       ),
                       if (!_loadingCourses && _errorMessage == null)
                         Text(
-                          '${_courses.length} active',
+                          '${_courses.length} classes',
                           style: TextStyle(color: Colors.grey[600], fontSize: 13),
                         ),
                     ],
@@ -534,23 +545,48 @@ class _ClassroomTabState extends State<ClassroomTab>
                   child: Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.error_outline, size: 54, color: Colors.redAccent),
-                          const SizedBox(height: 16),
-                          Text(
-                            _errorMessage!,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 14, color: Colors.red),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 460),
+                        child: Card(
+                          elevation: 1,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.error_outline, size: 54, color: Colors.redAccent),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Could Not Load Courses',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  _errorMessage!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontSize: 13, color: Colors.red),
+                                ),
+                                const SizedBox(height: 20),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    OutlinedButton(
+                                      onPressed: _handleSwitchAccount,
+                                      child: const Text('Switch Account'),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    FilledButton.icon(
+                                      onPressed: _loadCourses,
+                                      icon: const Icon(Icons.refresh),
+                                      label: const Text('Try Again'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: _loadCourses,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Try Again'),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -558,21 +594,59 @@ class _ClassroomTabState extends State<ClassroomTab>
               else if (_courses.isEmpty)
                 SliverFillRemaining(
                   child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'No active courses found',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 440),
+                        child: Card(
+                          elevation: 1,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(28),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.school_outlined, size: 58, color: Colors.grey[400]),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'No Classes Found',
+                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'No Google Classroom courses were found for:\n${user?.email ?? ""}\n\nAre your courses under your university email (e.g. @seu.edu.bd)?',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey[700], fontSize: 13, height: 1.4),
+                                ),
+                                const SizedBox(height: 22),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 46,
+                                  child: FilledButton.icon(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1E8238),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    onPressed: _handleSwitchAccount,
+                                    icon: const Icon(Icons.switch_account_outlined),
+                                    label: const Text('Sign in with University Account'),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 42,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => _openUrl('https://classroom.google.com'),
+                                    icon: const Icon(Icons.open_in_new, size: 16),
+                                    label: const Text('Verify on Classroom Web'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Join a class in Google Classroom to see it here.',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 )
