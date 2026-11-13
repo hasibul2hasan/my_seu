@@ -24,11 +24,11 @@ while IFS= read -r line || [[ -n "$line" ]]; do
   DEFINES="$DEFINES --dart-define=$key=$val"
 done < "$ENV_FILE"
 
-WEB_ARGS=""
+WEB_ARGS=()
 if [[ " $* " =~ " -d chrome " ]]; then
-  WEB_ARGS="--web-port=5000 --web-hostname=localhost"
+  WEB_ARGS=(--web-port=5000 --web-hostname=localhost)
 fi
 
-echo "▶  flutter run $DEFINES $WEB_ARGS $*"
+echo "▶  flutter run $DEFINES ${WEB_ARGS[*]} $*"
 # shellcheck disable=SC2086
-flutter run $DEFINES $WEB_ARGS "$@"
+flutter run $DEFINES "${WEB_ARGS[@]}" "$@"
